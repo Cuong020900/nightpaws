@@ -77,11 +77,15 @@ export class Game {
       }
       const step = danceCycleKeys[code];
       if (step) {
+        this.input.releaseKeys();
         this.cycleEmote(step);
         return;
       }
       const dance = this.availableDances[danceHotkeys.findIndex((hotkey) => hotkey.code === code)];
-      if (dance) this.playEmote(dance);
+      if (dance) {
+        this.input.releaseKeys();
+        this.playEmote(dance);
+      }
     });
   }
 

@@ -83,9 +83,11 @@ export class Hud {
     this.root = element("div", { className: "hud hud--hidden" }, [
       playerChip,
       this.concealButton,
-      this.monitor,
       element("div", { className: "hud__joystick" }, [createJoystick(options.onJoystick)]),
-      element("div", { className: "hud__actions" }, [dancePanel, requestButton]),
+      element("div", { className: "hud__rail" }, [
+        this.monitor,
+        element("div", { className: "hud__actions" }, [dancePanel, requestButton]),
+      ]),
       element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · Space to jump · 1-0, Z-N to dance · Q/E to cycle · H hides UI" }),
     ]);
   }

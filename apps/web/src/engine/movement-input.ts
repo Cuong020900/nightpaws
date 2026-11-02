@@ -17,17 +17,29 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 const capturedKeys = new Set(["Space"]);
 
+interface KeyboardLayoutSource {
+  getLayoutMap?: () => Promise<Map<string, string>>;
+}
+
+function isPrintedCharacter(key: string): boolean {
+  return [...key].length === 1;
+}
+
 export class MovementInput {
   capturing = false;
   private readonly pressed = new Set<string>();
   private readonly joystick = new THREE.Vector2();
   private readonly keyListeners = new Set<(code: string) => void>();
+  private layout: Map<string, string> | null = null;
 
   constructor() {
+    (navigator as Navigator & { keyboard?: KeyboardLayoutSource }).keyboard?.getLayoutMap?.()
+      .then((layout) => (this.layout = layout))
+      .catch(() => undefined);
     window.addEventListener("keydown", (event) => {
       if (isTypingTarget(event.target)) return;
       if (event.code in movementKeys) {
-        this.pressed.add(event.code);
+        if (this.isPhysicalPress(event)) this.pressed.add(event.code);
         event.preventDefault();
       }
       if (this.capturing && capturedKeys.has(event.code)) event.preventDefault();
@@ -38,6 +50,22 @@ export class MovementInput {
       if (this.capturing && capturedKeys.has(event.code) && !isTypingTarget(event.target)) event.preventDefault();
     });
     window.addEventListener("blur", () => this.pressed.clear());
+    document.addEventListener("visibilitychange", () => this.pressed.clear());
+  }
+
+  releaseKeys(): void {
+    this.pressed.clear();
+  }
+
+  private isPhysicalPress(event: KeyboardEvent): boolean {
+    if (event.isComposing || event.keyCode === 229) return false;
+    if (event.metaKey || event.ctrlKey || event.altKey) return false;
+    if (!event.code.startsWith("Key")) return event.key === event.code;
+    if (!isPrintedCharacter(event.key)) return false;
+    const typed = event.key.toLowerCase();
+    if (typed.charCodeAt(0) > 0x7f) return false;
+    const expected = this.layout?.get(event.code) ?? event.code.slice(3).toLowerCase();
+    return typed === expected.toLowerCase();
   }
 
   setJoystick(x: number, y: number): void {
