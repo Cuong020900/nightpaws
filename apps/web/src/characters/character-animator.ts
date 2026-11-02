@@ -15,6 +15,8 @@ export interface AnimationInput {
   lite: boolean;
   airborne: number;
   landing: number;
+  onBeat: boolean;
+  snappy: boolean;
 }
 
 const lerp = THREE.MathUtils.lerp;
@@ -44,8 +46,8 @@ export class CharacterAnimator {
     }
     if (input.dance) this.lastDance = input.dance;
     this.walkWeight = lerp(this.walkWeight, input.moving ? 1 : 0, 1 - Math.exp(-dt * 8));
-    this.danceWeight = lerp(this.danceWeight, input.dance && !input.moving ? 1 : 0, 1 - Math.exp(-dt * 3));
-    const beats = input.beats + this.beatOffset;
+    this.danceWeight = lerp(this.danceWeight, input.dance && !input.moving ? 1 : 0, 1 - Math.exp(-dt * (input.snappy ? 12 : 3)));
+    const beats = input.beats + (input.onBeat ? 0 : this.beatOffset);
     const jumping = input.airborne + input.landing > 0.002;
 
     if (model.mixer) {

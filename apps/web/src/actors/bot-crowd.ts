@@ -4,6 +4,7 @@ import type { ViewSample } from "../engine/view-sample.ts";
 import type { WalkableSpace } from "../engine/walkable-space.ts";
 import type { MusicPulse, SceneModule } from "../scenes/scene-module.ts";
 import { CharacterActor, type ActorTiming } from "./character-actor.ts";
+import { freeCrowd, type CrowdCue } from "./crowd-cue.ts";
 
 type BotActivity =
   | { kind: "walk"; target: THREE.Vector3; then: "dance" | "idle" }
@@ -29,6 +30,7 @@ function randomBetween(min: number, max: number): number {
 export class BotCrowd {
   private readonly bots: Bot[] = [];
   private readonly desiredVelocity = new THREE.Vector3();
+  private cue: CrowdCue = freeCrowd;
 
   constructor(
     private readonly scene: SceneModule,
@@ -57,9 +59,18 @@ export class BotCrowd {
     }
   }
 
-  update(deltaSeconds: number, timing: ActorTiming, music: MusicPulse, others: CharacterActor[], view: ViewSample): void {
+  setCue(cue: CrowdCue): void {
+    this.cue = cue;
     for (const bot of this.bots) {
-      this.advanceActivity(bot, deltaSeconds, music);
+      bot.actor.setCue(cue);
+      if (cue.kind === "free") bot.activity = { kind: "idle", remaining: randomBetween(0.3, 2.5) };
+    }
+  }
+
+  update(deltaSeconds: number, timing: ActorTiming, music: MusicPulse, others: CharacterActor[], view: ViewSample, leader: THREE.Vector3): void {
+    for (const bot of this.bots) {
+      if (this.cue.kind === "free") this.advanceActivity(bot, deltaSeconds, music);
+      else if (this.cue.kind === "sync") bot.actor.faceTowards(leader, deltaSeconds);
       bot.actor.update(deltaSeconds, timing, view);
     }
     this.keepPersonalSpace([...this.actors, ...others]);

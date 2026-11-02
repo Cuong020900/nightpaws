@@ -13,6 +13,7 @@ import type { PoseKey } from "../characters/dance-poses.ts";
 import { createNameLabel } from "../engine/name-label.ts";
 import type { ViewSample } from "../engine/view-sample.ts";
 import type { WalkableSpace } from "../engine/walkable-space.ts";
+import { freeCrowd, type CrowdCue } from "./crowd-cue.ts";
 
 export interface ActorTiming {
   elapsedSeconds: number;
@@ -31,6 +32,7 @@ export interface CharacterActorOptions {
   mirrored?: boolean;
   danceIntensity?: number;
   alwaysFullDetail?: boolean;
+  onBeat?: boolean;
 }
 
 const turnSpeed = 10;
@@ -102,6 +104,7 @@ export class CharacterActor {
   private stridePhase = 0;
   private danceMove: DanceMoveId | null = null;
   private routine: Routine | null = null;
+  private cue: CrowdCue = freeCrowd;
   private name: string;
   private appearanceValue!: CharacterAppearance;
   private labelVisible = true;
@@ -181,6 +184,11 @@ export class CharacterActor {
     this.danceMove = null;
   }
 
+  setCue(cue: CrowdCue): void {
+    this.cue = cue;
+    if (cue.kind !== "free") this.danceMove = null;
+  }
+
   jump(): boolean {
     if (this.jumpHeight > 0 || this.jumpVelocity > 0) return false;
     this.danceMove = null;
@@ -229,6 +237,7 @@ export class CharacterActor {
     }
 
     this.object.updateWorldMatrix(true, false);
+    const synced = this.cue.kind === "sync";
     this.animator.update({
       deltaSeconds: this.pendingSeconds,
       elapsedSeconds: timing.elapsedSeconds,
@@ -237,11 +246,13 @@ export class CharacterActor {
       speed: this.speed,
       stridePhase: this.stridePhase,
       dance: this.poseKey(timing.beats),
-      mirrored: this.options.mirrored ?? false,
-      intensity: this.options.danceIntensity ?? 1,
+      mirrored: synced ? false : (this.options.mirrored ?? false),
+      intensity: synced ? 1 : (this.options.danceIntensity ?? 1),
       lite,
       airborne: THREE.MathUtils.clamp(this.jumpHeight / (jumpApexPerHeight * this.descriptorValue.height * 0.5), 0, 1),
       landing: this.landing,
+      onBeat: synced || (this.options.onBeat ?? false),
+      snappy: this.cue.kind !== "free",
     });
     this.pendingSeconds = 0;
   }
@@ -270,6 +281,8 @@ export class CharacterActor {
   }
 
   private poseKey(beats: number): PoseKey | null {
+    if (this.cue.kind === "freeze") return null;
+    if (this.cue.kind === "sync") return beats >= this.cue.startBeat ? this.cue.move : null;
     if (this.routine === "dj") return "dj";
     if (this.routine === "auto") return danceMoves[Math.floor(beats / 16) % danceMoves.length]!.id;
     return this.danceMove;

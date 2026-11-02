@@ -1,5 +1,6 @@
 import { danceMoveName, type DanceMoveId, type RoomMusicState } from "@nightpaws/shared";
 import { danceHotkeyLabel } from "../engine/dance-hotkeys.ts";
+import type { CrowdMode } from "../engine/game.ts";
 import { element } from "./dom.ts";
 import { createJoystick } from "./joystick.ts";
 
@@ -9,6 +10,8 @@ export interface HudOptions {
   onRequestMusic: () => void;
   onDance: (clip: DanceMoveId) => void;
   onCycleDance: (step: number) => void;
+  onFreezeCrowd: () => void;
+  onSyncCrowd: () => void;
   onToggleMute: () => boolean;
   onChangeLook: () => void;
 }
@@ -23,6 +26,8 @@ export class Hud {
   private readonly danceButtons: HTMLElement;
   private readonly danceButtonMap = new Map<DanceMoveId, HTMLButtonElement>();
   private readonly concealButton: HTMLButtonElement;
+  private readonly freezeButton: HTMLButtonElement;
+  private readonly syncButton: HTMLButtonElement;
 
   constructor(private readonly options: HudOptions) {
     this.playerName = element("strong", { className: "player-chip__name" });
@@ -68,7 +73,16 @@ export class Hud {
       button.addEventListener("click", () => options.onCycleDance(step));
       return button;
     };
+    this.freezeButton = element("button", { className: "chip-button crowd-control__button crowd-control__button--freeze", text: "❄ Freeze · F", attributes: { type: "button", "aria-pressed": "false" } });
+    this.freezeButton.addEventListener("click", () => options.onFreezeCrowd());
+    this.syncButton = element("button", { className: "chip-button crowd-control__button crowd-control__button--sync", text: "⚡ All dance · G", attributes: { type: "button", "aria-pressed": "false" } });
+    this.syncButton.addEventListener("click", () => options.onSyncCrowd());
     const dancePanel = element("div", { className: "dance-panel" }, [
+      element("div", { className: "crowd-control" }, [
+        element("span", { className: "dance-cycle__label", text: "Crowd" }),
+        this.freezeButton,
+        this.syncButton,
+      ]),
       element("div", { className: "dance-cycle" }, [
         cycleButton(-1, "◀ Q", "Previous dance"),
         element("span", { className: "dance-cycle__label", text: "Dances" }),
@@ -88,7 +102,7 @@ export class Hud {
         this.monitor,
         element("div", { className: "hud__actions" }, [dancePanel, requestButton]),
       ]),
-      element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · Space to jump · 1-0, Z-N to dance · Q/E to cycle · H hides UI" }),
+      element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · Space to jump · 1-0, Z-N to dance · Q/E to cycle · F freezes the crowd · G makes everyone dance your move · H hides UI" }),
     ]);
   }
 
@@ -114,6 +128,17 @@ export class Hud {
 
   setActiveDance(active: DanceMoveId | null): void {
     for (const [clip, button] of this.danceButtonMap) button.classList.toggle("is-active", clip === active);
+  }
+
+  setCrowdMode(mode: CrowdMode, move: DanceMoveId | null): void {
+    const frozen = mode === "freeze";
+    const synced = mode === "sync";
+    this.freezeButton.classList.toggle("is-active", frozen);
+    this.freezeButton.setAttribute("aria-pressed", String(frozen));
+    this.freezeButton.textContent = frozen ? "❄ Release · F" : "❄ Freeze · F";
+    this.syncButton.classList.toggle("is-active", synced);
+    this.syncButton.setAttribute("aria-pressed", String(synced));
+    this.syncButton.textContent = synced && move ? `⚡ All: ${danceMoveName(move)} · G` : "⚡ All dance · G";
   }
 
   setPlaybackActive(isPlaying: boolean): void {

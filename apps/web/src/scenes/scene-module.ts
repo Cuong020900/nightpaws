@@ -1,5 +1,6 @@
 import type { FloorRect, RoomMusicState, SceneDescriptor } from "@nightpaws/shared";
 import type * as THREE from "three";
+import type { CrowdCue } from "../actors/crowd-cue.ts";
 import type { ViewSample } from "../engine/view-sample.ts";
 import type { WorldLook } from "../engine/world-renderer.ts";
 
@@ -28,6 +29,7 @@ export interface SceneModule {
   constrainCamera(focus: THREE.Vector3, camera: THREE.Vector3): void;
   update(frame: SceneFrame): void;
   showMusicState(state: RoomMusicState | null): void;
+  setCrowdCue(cue: CrowdCue): void;
   dispose(): void;
 }
 

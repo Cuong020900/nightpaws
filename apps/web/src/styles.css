@@ -554,6 +554,29 @@ input {
   gap: 8px;
 }
 
+.crowd-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.crowd-control__button.is-active {
+  color: #2a1600;
+  border-color: transparent;
+}
+
+.crowd-control__button--freeze.is-active {
+  background: linear-gradient(180deg, #b9f6ff, #26c6da);
+  box-shadow: 0 3px 0 #0b5c66, 0 0 18px rgba(38, 240, 255, 0.8);
+}
+
+.crowd-control__button--sync.is-active {
+  background: linear-gradient(180deg, #ffe066, #ffb703);
+  box-shadow: 0 3px 0 #8a5a00, 0 0 18px rgba(255, 210, 63, 0.8);
+}
+
 .dance-cycle__label {
   font-family: var(--display-font);
   font-size: 12px;
@@ -850,7 +873,8 @@ input {
     gap: 6px;
   }
 
-  .dance-cycle__button {
+  .dance-cycle__button,
+  .crowd-control__button {
     padding: 4px 10px;
     font-size: 11.5px;
   }

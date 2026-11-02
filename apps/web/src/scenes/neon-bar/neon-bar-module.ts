@@ -1,5 +1,6 @@
 import type { FloorRect, RoomMusicState, SceneDescriptor } from "@nightpaws/shared";
 import * as THREE from "three";
+import type { CrowdCue } from "../../actors/crowd-cue.ts";
 import { rimColor } from "../../engine/shading.ts";
 import type { WorldLook } from "../../engine/world-renderer.ts";
 import type { SceneFrame, SceneModule, SceneModuleFactory } from "../scene-module.ts";
@@ -145,6 +146,10 @@ class NeonBarModule implements SceneModule {
       reach = Math.min(reach, (balconyUnderside - focus.y) / direction.y);
     }
     camera.copy(focus).addScaledVector(direction, Math.max(0.2, reach));
+  }
+
+  setCrowdCue(cue: CrowdCue): void {
+    this.cast.setCue(cue);
   }
 
   showMusicState(state: RoomMusicState | null): void {

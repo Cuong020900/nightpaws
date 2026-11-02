@@ -52,6 +52,8 @@ async function boot(): Promise<void> {
     onRequestMusic: () => dialog.open(),
     onDance: (clip) => game.playEmote(clip),
     onCycleDance: (step) => game.cycleEmote(step),
+    onFreezeCrowd: () => game.toggleCrowdFreeze(),
+    onSyncCrowd: () => game.toggleCrowdSync(),
     onToggleMute: () => music.toggleMute(),
     onChangeLook: () => {
       game.returnToIntro();
@@ -100,7 +102,10 @@ async function boot(): Promise<void> {
     if (code === "KeyM" && game.currentMode === "playing") dialog.open();
     if (code === "KeyH" && game.currentMode === "playing" && hud.isShown) hud.toggleConcealed();
   });
-  window.setInterval(() => hud.setActiveDance(game.activeDance), 150);
+  window.setInterval(() => {
+    hud.setActiveDance(game.activeDance);
+    hud.setCrowdMode(game.crowdMode, game.crowdMove);
+  }, 150);
 
   uiRoot.append(intro.root, hud.root, dialog.root, toasts);
   game.start();

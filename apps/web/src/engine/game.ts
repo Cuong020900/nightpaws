@@ -2,6 +2,7 @@ import type { CharacterAppearance, DanceMoveId, RoomMusicState } from "@nightpaw
 import * as THREE from "three";
 import { BotCrowd } from "../actors/bot-crowd.ts";
 import { CharacterActor } from "../actors/character-actor.ts";
+import { freeCrowd, type CrowdCue } from "../actors/crowd-cue.ts";
 import { BeatClock } from "../music/beat-clock.ts";
 import { createSceneModule } from "../scenes/scene-registry.ts";
 import type { SceneModule } from "../scenes/scene-module.ts";
@@ -15,6 +16,8 @@ import { WalkableSpace } from "./walkable-space.ts";
 import { WorldRenderer } from "./world-renderer.ts";
 
 export type GameMode = "intro" | "playing";
+
+export type CrowdMode = CrowdCue["kind"];
 
 export interface GameOptions {
   canvas: HTMLCanvasElement;
@@ -42,6 +45,8 @@ export class Game {
   private mode: GameMode = "intro";
   private musicPlaying = false;
   private elapsedSeconds = 0;
+  private crowdCue: CrowdCue = freeCrowd;
+  private pickedDance: DanceMoveId | null = null;
 
   constructor(options: GameOptions) {
     this.world = new WorldRenderer(options.canvas);
@@ -62,6 +67,7 @@ export class Game {
       highlighted: true,
       quality: "hero",
       alwaysFullDetail: true,
+      onBeat: true,
     });
     this.player.position.copy(this.scene.showcaseSpot);
     this.player.setLabelVisible(false);
@@ -73,6 +79,14 @@ export class Game {
     this.input.onKeyPress((code) => {
       if (code === "Space") {
         this.jump();
+        return;
+      }
+      if (code === "KeyF") {
+        this.toggleCrowdFreeze();
+        return;
+      }
+      if (code === "KeyG") {
+        this.toggleCrowdSync();
         return;
       }
       const step = danceCycleKeys[code];
@@ -99,6 +113,14 @@ export class Game {
 
   get activeDance(): DanceMoveId | null {
     return this.player.currentDance;
+  }
+
+  get crowdMode(): CrowdMode {
+    return this.crowdCue.kind;
+  }
+
+  get crowdMove(): DanceMoveId | null {
+    return this.crowdCue.kind === "sync" ? this.crowdCue.move : null;
   }
 
   get playerAppearance(): CharacterAppearance {
@@ -139,6 +161,7 @@ export class Game {
     this.orbit.constrain = (focus, camera) => this.scene.constrainCamera(focus, camera);
     this.focusLights.setActive(true);
     this.player.stopDancing();
+    this.setCrowdCue(freeCrowd);
     this.player.setLabelVisible(false);
     this.player.position.copy(this.scene.showcaseSpot);
   }
@@ -146,7 +169,7 @@ export class Game {
   playEmote(move: DanceMoveId): void {
     if (this.mode !== "playing") return;
     if (this.player.currentDance === move) this.player.stopDancing();
-    else this.player.dance(move);
+    else this.pickDance(move);
   }
 
   jump(): void {
@@ -159,7 +182,40 @@ export class Game {
     const dances = this.availableDances;
     if (!dances.length) return;
     const current = this.player.currentDance ? dances.indexOf(this.player.currentDance) : step > 0 ? -1 : 0;
-    this.player.dance(dances[THREE.MathUtils.euclideanModulo(current + step, dances.length)]!);
+    this.pickDance(dances[THREE.MathUtils.euclideanModulo(current + step, dances.length)]!);
+  }
+
+  toggleCrowdFreeze(): void {
+    if (this.mode !== "playing") return;
+    this.setCrowdCue(this.crowdCue.kind === "freeze" ? freeCrowd : { kind: "freeze" });
+  }
+
+  toggleCrowdSync(): void {
+    if (this.mode !== "playing") return;
+    if (this.crowdCue.kind === "sync") {
+      this.setCrowdCue(freeCrowd);
+      return;
+    }
+    const move = this.player.currentDance ?? this.pickedDance ?? this.availableDances[0];
+    if (!move) return;
+    this.player.dance(move);
+    this.syncCrowd(move);
+  }
+
+  private pickDance(move: DanceMoveId): void {
+    this.pickedDance = move;
+    this.player.dance(move);
+    if (this.crowdCue.kind === "sync" && this.crowdCue.move !== move) this.syncCrowd(move);
+  }
+
+  private syncCrowd(move: DanceMoveId): void {
+    this.setCrowdCue({ kind: "sync", move, startBeat: Math.ceil(this.beatClock.beats + 0.25) });
+  }
+
+  private setCrowdCue(cue: CrowdCue): void {
+    this.crowdCue = cue;
+    this.bots.setCue(cue);
+    this.scene.setCrowdCue(cue);
   }
 
   setMusicPlaying(isPlaying: boolean): void {
@@ -183,7 +239,7 @@ export class Game {
     this.orbit.update(deltaSeconds);
     this.view.capture(this.world.camera);
     this.player.update(deltaSeconds, timing, this.view);
-    this.bots.update(deltaSeconds, timing, this.beatClock, [this.player], this.view);
+    this.bots.update(deltaSeconds, timing, this.beatClock, [this.player], this.view, this.player.position);
     this.scene.update({ deltaSeconds, elapsedSeconds: this.elapsedSeconds, music: this.beatClock, view: this.view });
     this.focusLights.update(deltaSeconds, this.player.position, this.player.facing, this.player.headHeight, rimColor.value);
     this.world.applyLook(this.scene.look);
