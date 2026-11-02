@@ -20,6 +20,7 @@ export class OrbitCamera {
   private pinchDistance = 0;
   private limits = followLimits;
   enabled = true;
+  constrain: ((focus: THREE.Vector3, camera: THREE.Vector3) => void) | null = null;
 
   constructor(
     readonly camera: THREE.PerspectiveCamera,
@@ -73,6 +74,7 @@ export class OrbitCamera {
       this.focus.y + Math.sin(this.pitch) * this.distance,
       this.focus.z + Math.cos(this.yaw) * horizontal,
     );
+    this.constrain?.(this.focus, this.camera.position);
     this.camera.lookAt(this.focus);
   }
 

@@ -2,9 +2,10 @@
 
 A 3D social hangout that runs in the browser. You pick a name and a chunky,
 stylized animal character, walk into a neon club, request music from YouTube,
-and dance under moving lights. The world is built from procedural Three.js
-geometry and canvas-generated textures, with no model, texture, or audio asset
-files. It's designed to grow into many scenes and many character types.
+and dance under moving lights. The hero panda and the whole club are built from
+procedural Three.js geometry and canvas-generated textures. The supporting cast
+are CC0 Quaternius models in `apps/web/public/models` (see `CREDITS.md` there).
+It's designed to grow into many scenes and many character types.
 
 ## Run it
 
@@ -29,7 +30,7 @@ The web dev server reads `NIGHTPAWS_API_URL`.
 
 - Drag to orbit the camera. Use the mouse wheel or pinch to zoom.
 - Move with WASD, the arrow keys, or the on-screen joystick.
-- Dance with the dance buttons or keys `1`–`3`. Moving cancels the dance.
+- Dance with the dance buttons or keys `1`–`8`. Moving cancels the dance.
 - Queue a YouTube link or video id with the ♪ Request button (or `M`).
 
 ## Layout
@@ -37,7 +38,9 @@ The web dev server reads `NIGHTPAWS_API_URL`.
 pnpm workspaces:
 
 - `packages/shared`: data and types shared by client and server.
-  - Character descriptors: rig proportions, parts, palette slots, animation set.
+  - Character descriptors: height, walk speed, model source (the procedural
+    hero panda or a GLB asset), and the dance moves it can do.
+  - Dance moves: the eight club dance loops and their names.
   - Outfits: shared color schemes.
   - Scene descriptors: walkable area, spawn point, bot population.
   - Music-request and player-profile shapes, API routes, and the registries
@@ -46,8 +49,10 @@ pnpm workspaces:
   - Player profiles, saved characters (one row per type and outfit combination),
     the music-request log, and each room's now-playing track and queue.
 - `apps/web`: TypeScript, Vite, and vanilla Three.js.
-  - `characters/` builds a character from its descriptor and animates it with
-    procedural clips.
+  - `characters/` builds a character from its descriptor (the hand-built hero
+    panda, or a cloned GLB with shared cached materials). It layers the
+    code-authored dances on top of the model's own Idle and Walk clips, with
+    two-bone leg IK.
   - `actors/` holds the player and bot behaviour.
   - `scenes/` holds the scene registry and one module per map.
   - `music/` drives the YouTube IFrame player.
@@ -57,15 +62,18 @@ pnpm workspaces:
 
 - **A character type**: add a `CharacterTypeDescriptor` under
   `packages/shared/src/characters/` and list it in `characterTypes`
-  (`registry.ts`). Parts are primitives (sphere, box, capsule, cylinder, cone,
-  torus) attached to rig bones and colored through palette slots. The
-  descriptor names its idle, walk, and dance clips. New clips go in
-  `apps/web/src/characters/animation-clips.ts`.
+  (`registry.ts`). A GLB character needs a biped rig with the Quaternius bone
+  names (Body, Hips, Torso, Head, UpperArm.L, LowerArm.L, UpperLeg.L,
+  LowerLeg.L, Foot.L, and so on), so every dance drives it. Put the file in
+  `apps/web/public/models/` and add its source and license to `CREDITS.md`.
+  `selectable: false` keeps a type out of the intro picker; bots still use it.
+  New dance moves go in `apps/web/src/characters/dance-poses.ts` and
+  `packages/shared/src/dances.ts`.
 - **An outfit**: add an entry to `packages/shared/src/outfits.ts`.
 - **A map**: add a `SceneDescriptor` to `sceneDescriptors`. Then create a
   `SceneModule` under `apps/web/src/scenes/<map>/` and register its factory in
-  `scene-registry.ts`. Scene-specific logic lives in the module, as the bar's
-  lights, DJ booth, and dance floor do in `scenes/neon-bar/`.
+  `scene-registry.ts`. Scene-specific logic lives in the module, as the club's
+  zones, lighting rig, LED wall, and resident cast do in `scenes/neon-bar/`.
 
 ### Music
 
@@ -93,13 +101,25 @@ playing.
 
 ## Status
 
-v1 has one map, The Neon Paw bar. There are four character types (panda,
-tiger, bunny, fox) and six outfits. The bar is filled with simulated bots that
-wander, lounge, and dance when music plays.
+There is one map, The Neon Paw club. Its zones are the entrance, the dance
+floor, the stage and DJ booth, the bar and booths, and VIP. The resident cast
+works the club: DJ Finn on the decks, four go-go dancers on the podiums running
+the full routine (mirrored in pairs), Juno at the VIP rope, and regulars at the
+bar and in VIP. Simulated bots wander, lounge, and dance, more often while
+music plays.
 
-The character models and bar visuals are placeholders until the art direction
-is approved. They sit behind the character and scene registries, so swapping
-in the approved look is a data and module change.
+Players pick from eight characters: the hand-built hero panda, five rabbits, a
+bunny, and a shark. There are seven outfits and eight dance moves.
+
+Performance choices:
+
+- The pixel ratio is capped at 1.5, and there are no shadow maps (blob
+  shadows only).
+- The club has ten real-time lights. The light beams are additive cones.
+- The dance floor and bottle wall are instanced.
+- Characters share cloned geometry and cached materials.
+- Characters outside the camera view are skipped. Distant ones update at half
+  or third rate with a lite pose that has no leg IK.
 
 ## Future work (out of scope for v1)
 

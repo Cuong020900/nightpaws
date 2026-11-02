@@ -1,18 +1,32 @@
 import type { CharacterTypeDescriptor, OutfitDescriptor } from "./character.ts";
-import { bunnyCharacter } from "./characters/bunny.ts";
-import { foxCharacter } from "./characters/fox.ts";
 import { pandaCharacter } from "./characters/panda.ts";
-import { tigerCharacter } from "./characters/tiger.ts";
+import {
+  blondRabbitCharacter,
+  bunnyCharacter,
+  cyanRabbitCharacter,
+  greyRabbitCharacter,
+  pandaPatronCharacter,
+  pigtailRabbitCharacter,
+  rabbitCharacter,
+  sharkCharacter,
+} from "./characters/quaternius-cast.ts";
 import { outfits } from "./outfits.ts";
 import type { SceneDescriptor } from "./scene.ts";
 import { neonBarScene } from "./scenes/neon-bar.ts";
 
 export const characterTypes: CharacterTypeDescriptor[] = [
   pandaCharacter,
-  tigerCharacter,
+  rabbitCharacter,
   bunnyCharacter,
-  foxCharacter,
+  sharkCharacter,
+  greyRabbitCharacter,
+  blondRabbitCharacter,
+  pigtailRabbitCharacter,
+  cyanRabbitCharacter,
+  pandaPatronCharacter,
 ];
+
+export const selectableCharacterTypes: CharacterTypeDescriptor[] = characterTypes.filter((type) => type.selectable);
 
 export const sceneDescriptors: SceneDescriptor[] = [neonBarScene];
 
@@ -20,6 +34,10 @@ export const defaultSceneId = neonBarScene.id;
 
 export function findCharacterType(id: string): CharacterTypeDescriptor | undefined {
   return characterTypes.find((characterType) => characterType.id === id);
+}
+
+export function findSelectableCharacterType(id: string): CharacterTypeDescriptor | undefined {
+  return selectableCharacterTypes.find((characterType) => characterType.id === id);
 }
 
 export function findOutfit(id: string): OutfitDescriptor | undefined {

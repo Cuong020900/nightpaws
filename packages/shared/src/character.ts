@@ -1,95 +1,48 @@
 export type Vector3Tuple = [number, number, number];
 
-export type BoneName =
-  | "root"
-  | "hips"
-  | "torso"
-  | "head"
-  | "armLeft"
-  | "armRight"
-  | "legLeft"
-  | "legRight"
-  | "tail";
+export type DanceMoveId = "bounce" | "twostep" | "shuffle" | "robot" | "point" | "handsup" | "roll" | "hype";
 
-export type PartShape = "sphere" | "box" | "capsule" | "cylinder" | "cone" | "torus";
-
-export type PaletteSlot =
-  | "fur"
-  | "furSecondary"
-  | "belly"
-  | "eyePatch"
-  | "eye"
-  | "nose"
-  | "outfit"
-  | "outfitTrim"
-  | "accent";
-
-export type CharacterPalette = Record<PaletteSlot, string>;
-
-export interface CharacterPartDescriptor {
-  id: string;
-  bone: BoneName;
-  shape: PartShape;
-  size: Vector3Tuple;
-  offset: Vector3Tuple;
-  rotation?: Vector3Tuple;
-  colorSlot: PaletteSlot;
-  mirrored?: boolean;
-  outlined?: boolean;
-  glossy?: boolean;
+export interface DanceMoveDescriptor {
+  id: DanceMoveId;
+  displayName: string;
 }
 
-export interface BipedRigProportions {
-  hipHeight: number;
-  hipWidth: number;
-  torsoHeight: number;
-  shoulderWidth: number;
-  neckHeight: number;
-  tailHeight: number;
+export interface ModelCredit {
+  title: string;
+  author: string;
+  license: string;
+  url: string;
 }
 
-export type AnimationClipId =
-  | "idle-breathe"
-  | "idle-sway"
-  | "walk-waddle"
-  | "walk-bounce"
-  | "dance-bounce"
-  | "dance-disco"
-  | "dance-wave"
-  | "dance-spin";
-
-export interface CharacterAnimationSet {
-  idle: AnimationClipId;
-  walk: AnimationClipId;
-  dances: AnimationClipId[];
-}
+export type CharacterModelSource =
+  | { kind: "hero-panda" }
+  | { kind: "gltf"; asset: string; hiddenMeshes: string[]; credit: ModelCredit };
 
 export interface CharacterTypeDescriptor {
   id: string;
   displayName: string;
   tagline: string;
-  scale: number;
+  height: number;
   walkSpeed: number;
-  rig: BipedRigProportions;
-  basePalette: CharacterPalette;
-  parts: CharacterPartDescriptor[];
-  animations: CharacterAnimationSet;
+  selectable: boolean;
+  swatches: string[];
+  model: CharacterModelSource;
+  dances: DanceMoveId[];
+}
+
+export interface OutfitColors {
+  outfit: string;
+  outfitTrim: string;
+  accent: string;
 }
 
 export interface OutfitDescriptor {
   id: string;
   displayName: string;
-  colors: Pick<CharacterPalette, "outfit" | "outfitTrim" | "accent">;
+  colors: OutfitColors;
 }
 
 export interface CharacterAppearance {
   characterTypeId: string;
   outfitId: string;
-}
-
-export function resolveCharacterPalette(
-  characterType: CharacterTypeDescriptor,
-  outfit: OutfitDescriptor,
-): CharacterPalette {
-  return { ...characterType.basePalette, ...outfit.colors };
 }

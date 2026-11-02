@@ -1,6 +1,7 @@
-import { defaultSceneId, findSceneDescriptor, outfits, type CharacterAppearance } from "@nightpaws/shared";
+import { defaultSceneId, findSceneDescriptor, findSelectableCharacterType, outfits, type CharacterAppearance } from "@nightpaws/shared";
 import { restorePlayer, savePlayer } from "./api/player-session.ts";
 import { Game } from "./engine/game.ts";
+import { preloadCharacterModels } from "./characters/model-library.ts";
 import { RoomMusic } from "./music/room-music.ts";
 import "./styles.css";
 import { showToast } from "./ui/dom.ts";
@@ -17,13 +18,21 @@ async function waitForFonts(): Promise<void> {
 async function boot(): Promise<void> {
   const canvas = document.querySelector<HTMLCanvasElement>("#world")!;
   const uiRoot = document.querySelector<HTMLElement>("#ui-root")!;
+  const loading = document.querySelector<HTMLElement>("#loading")!;
+  const loadingText = loading.querySelector<HTMLElement>(".loading__text")!;
   const scene = findSceneDescriptor(defaultSceneId)!;
 
-  const [savedPlayer] = await Promise.all([restorePlayer(), waitForFonts()]);
+  const [savedPlayer] = await Promise.all([
+    restorePlayer(),
+    waitForFonts(),
+    preloadCharacterModels((done, total) => {
+      loadingText.textContent = `Loading the crowd… ${done}/${total}`;
+    }),
+  ]);
   let playerId = savedPlayer?.profile.id ?? null;
   let playerName = savedPlayer?.profile.displayName ?? "";
   const savedCharacter = savedPlayer?.activeCharacter;
-  const initialAppearance = savedCharacter
+  const initialAppearance = savedCharacter && findSelectableCharacterType(savedCharacter.characterTypeId)
     ? { characterTypeId: savedCharacter.characterTypeId, outfitId: savedCharacter.outfitId }
     : defaultAppearance;
 
@@ -93,7 +102,11 @@ async function boot(): Promise<void> {
 
   uiRoot.append(intro.root, hud.root, dialog.root, toasts);
   game.start();
+  loading.classList.add("loading--done");
   void music.connect();
 }
 
-void boot();
+void boot().catch((error: unknown) => {
+  const loadingText = document.querySelector<HTMLElement>("#loading .loading__text");
+  if (loadingText) loadingText.textContent = `Couldn't open the club: ${error instanceof Error ? error.message : String(error)}`;
+});

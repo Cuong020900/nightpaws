@@ -1,5 +1,6 @@
-import { characterTypes, outfits, type AnimationClipId, type FloorRect } from "@nightpaws/shared";
+import { characterTypes, outfits, type DanceMoveId, type FloorRect } from "@nightpaws/shared";
 import * as THREE from "three";
+import type { ViewSample } from "../engine/view-sample.ts";
 import type { WalkableSpace } from "../engine/walkable-space.ts";
 import type { MusicPulse, SceneModule } from "../scenes/scene-module.ts";
 import { CharacterActor, type ActorTiming } from "./character-actor.ts";
@@ -7,7 +8,7 @@ import { CharacterActor, type ActorTiming } from "./character-actor.ts";
 type BotActivity =
   | { kind: "walk"; target: THREE.Vector3; then: "dance" | "idle" }
   | { kind: "idle"; remaining: number }
-  | { kind: "dance"; remaining: number; clip: AnimationClipId };
+  | { kind: "dance"; remaining: number; clip: DanceMoveId };
 
 interface Bot {
   actor: CharacterActor;
@@ -46,6 +47,7 @@ export class BotCrowd {
         name: names[index % names.length] ?? `Bot ${index + 1}`,
         appearance: { characterTypeId: pick(characterTypes).id, outfitId: pick(outfits).id },
         labelAccent: labelAccents[index % labelAccents.length]!,
+        danceIntensity: 0.85,
       });
       const area = index % 2 === 0 ? this.scene.danceArea : pick(this.scene.loungeAreas);
       actor.position.copy(this.space.randomFreePoint(area, actor.radius));
@@ -55,10 +57,10 @@ export class BotCrowd {
     }
   }
 
-  update(deltaSeconds: number, timing: ActorTiming, music: MusicPulse, others: CharacterActor[]): void {
+  update(deltaSeconds: number, timing: ActorTiming, music: MusicPulse, others: CharacterActor[], view: ViewSample): void {
     for (const bot of this.bots) {
       this.advanceActivity(bot, deltaSeconds, music);
-      bot.actor.update(deltaSeconds, timing);
+      bot.actor.update(deltaSeconds, timing, view);
     }
     this.keepPersonalSpace([...this.actors, ...others]);
   }
@@ -77,7 +79,7 @@ export class BotCrowd {
         if (distance < 0.25) {
           bot.activity =
             activity.then === "dance"
-              ? { kind: "dance", remaining: randomBetween(7, 16), clip: pick(actor.descriptor.animations.dances) }
+              ? { kind: "dance", remaining: randomBetween(7, 16), clip: pick(actor.descriptor.dances) }
               : { kind: "idle", remaining: randomBetween(2, 6) };
           if (bot.activity.kind === "dance") actor.dance(bot.activity.clip);
           return;

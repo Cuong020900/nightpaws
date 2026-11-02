@@ -1,12 +1,15 @@
-import type { AnimationClipId, CharacterAppearance, RoomMusicState } from "@nightpaws/shared";
+import type { CharacterAppearance, DanceMoveId, RoomMusicState } from "@nightpaws/shared";
 import * as THREE from "three";
 import { BotCrowd } from "../actors/bot-crowd.ts";
 import { CharacterActor } from "../actors/character-actor.ts";
 import { BeatClock } from "../music/beat-clock.ts";
 import { createSceneModule } from "../scenes/scene-registry.ts";
 import type { SceneModule } from "../scenes/scene-module.ts";
+import { FocusLights } from "./focus-lights.ts";
 import { MovementInput } from "./movement-input.ts";
 import { OrbitCamera } from "./orbit-camera.ts";
+import { rimColor } from "./shading.ts";
+import { ViewSample } from "./view-sample.ts";
 import { WalkableSpace } from "./walkable-space.ts";
 import { WorldRenderer } from "./world-renderer.ts";
 
@@ -31,6 +34,8 @@ export class Game {
   private readonly player: CharacterActor;
   private readonly beatClock = new BeatClock();
   private readonly timer = new THREE.Timer();
+  private readonly view = new ViewSample();
+  private readonly focusLights = new FocusLights();
   private readonly intent = new THREE.Vector2();
   private readonly velocity = new THREE.Vector3();
   private mode: GameMode = "intro";
@@ -41,16 +46,21 @@ export class Game {
     this.world = new WorldRenderer(options.canvas);
     this.scene = createSceneModule(options.sceneId);
     this.world.scene.add(this.scene.root);
+    this.world.scene.add(this.focusLights.object);
+    this.focusLights.setActive(true);
 
     this.space = new WalkableSpace(this.scene.descriptor.walkableArea, this.scene.obstacles);
     this.orbit = new OrbitCamera(this.world.camera, options.canvas);
     this.orbit.enabled = false;
+    this.orbit.constrain = (focus, camera) => this.scene.constrainCamera(focus, camera);
 
     this.player = new CharacterActor({
       name: options.playerName,
       appearance: options.playerAppearance,
       labelAccent: "#ffffff",
       highlighted: true,
+      quality: "hero",
+      alwaysFullDetail: true,
     });
     this.player.position.copy(this.scene.showcaseSpot);
     this.player.setLabelVisible(false);
@@ -60,7 +70,7 @@ export class Game {
     this.bots.populate(this.scene.descriptor.bots.count, this.scene.descriptor.bots.namePool);
 
     this.input.onKeyPress((code) => {
-      const danceIndex = ["Digit1", "Digit2", "Digit3", "Digit4"].indexOf(code);
+      const danceIndex = ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8"].indexOf(code);
       const dance = this.availableDances[danceIndex];
       if (dance) this.playEmote(dance);
     });
@@ -70,11 +80,11 @@ export class Game {
     return this.mode;
   }
 
-  get availableDances(): AnimationClipId[] {
-    return this.player.descriptor.animations.dances;
+  get availableDances(): DanceMoveId[] {
+    return this.player.descriptor.dances;
   }
 
-  get activeDance(): AnimationClipId | null {
+  get activeDance(): DanceMoveId | null {
     return this.player.currentDance;
   }
 
@@ -102,23 +112,26 @@ export class Game {
     this.player.facing = spawn.facing;
     this.orbit.yaw = spawn.facing + Math.PI;
     this.orbit.pitch = 0.42;
-    this.orbit.distance = 8.5;
+    this.orbit.distance = 7.5;
     this.orbit.enabled = true;
     this.player.setLabelVisible(true);
+    this.focusLights.setActive(false);
   }
 
   returnToIntro(): void {
     this.mode = "intro";
     this.orbit.enabled = false;
+    this.orbit.constrain = (focus, camera) => this.scene.constrainCamera(focus, camera);
+    this.focusLights.setActive(true);
     this.player.stopDancing();
     this.player.setLabelVisible(false);
     this.player.position.copy(this.scene.showcaseSpot);
   }
 
-  playEmote(clip: AnimationClipId): void {
+  playEmote(move: DanceMoveId): void {
     if (this.mode !== "playing") return;
-    if (this.player.currentDance === clip) this.player.stopDancing();
-    else this.player.dance(clip);
+    if (this.player.currentDance === move) this.player.stopDancing();
+    else this.player.dance(move);
   }
 
   setMusicPlaying(isPlaying: boolean): void {
@@ -139,10 +152,13 @@ export class Game {
     if (this.mode === "playing") this.updatePlayerMovement(deltaSeconds);
     else this.updateIntroCamera();
 
-    this.player.update(deltaSeconds, timing);
-    this.bots.update(deltaSeconds, timing, this.beatClock, [this.player]);
-    this.scene.update({ deltaSeconds, elapsedSeconds: this.elapsedSeconds, music: this.beatClock });
     this.orbit.update(deltaSeconds);
+    this.view.capture(this.world.camera);
+    this.player.update(deltaSeconds, timing, this.view);
+    this.bots.update(deltaSeconds, timing, this.beatClock, [this.player], this.view);
+    this.scene.update({ deltaSeconds, elapsedSeconds: this.elapsedSeconds, music: this.beatClock, view: this.view });
+    this.focusLights.update(deltaSeconds, this.player.position, this.player.facing, this.player.headHeight, rimColor.value);
+    this.world.applyLook(this.scene.look);
     this.world.render();
   }
 

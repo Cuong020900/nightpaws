@@ -1,5 +1,4 @@
-import type { AnimationClipId, RoomMusicState } from "@nightpaws/shared";
-import { danceDisplayNames } from "../characters/animation-clips.ts";
+import { danceMoveName, type DanceMoveId, type RoomMusicState } from "@nightpaws/shared";
 import { element } from "./dom.ts";
 import { createJoystick } from "./joystick.ts";
 
@@ -7,7 +6,7 @@ export interface HudOptions {
   sceneName: string;
   onJoystick: (x: number, y: number) => void;
   onRequestMusic: () => void;
-  onDance: (clip: AnimationClipId) => void;
+  onDance: (clip: DanceMoveId) => void;
   onToggleMute: () => boolean;
   onChangeLook: () => void;
 }
@@ -20,7 +19,7 @@ export class Hud {
   private readonly trackMeta: HTMLElement;
   private readonly monitor: HTMLElement;
   private readonly danceButtons: HTMLElement;
-  private readonly danceButtonMap = new Map<AnimationClipId, HTMLButtonElement>();
+  private readonly danceButtonMap = new Map<DanceMoveId, HTMLButtonElement>();
 
   constructor(private readonly options: HudOptions) {
     this.playerName = element("strong", { className: "player-chip__name" });
@@ -67,11 +66,11 @@ export class Hud {
       this.monitor,
       element("div", { className: "hud__joystick" }, [createJoystick(options.onJoystick)]),
       element("div", { className: "hud__actions" }, [this.danceButtons, requestButton]),
-      element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · 1-3 to dance" }),
+      element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · 1-8 to dance" }),
     ]);
   }
 
-  show(playerName: string, dances: AnimationClipId[]): void {
+  show(playerName: string, dances: DanceMoveId[]): void {
     this.playerName.textContent = playerName;
     this.setDances(dances);
     this.root.classList.remove("hud--hidden");
@@ -81,7 +80,7 @@ export class Hud {
     this.root.classList.add("hud--hidden");
   }
 
-  setActiveDance(active: AnimationClipId | null): void {
+  setActiveDance(active: DanceMoveId | null): void {
     for (const [clip, button] of this.danceButtonMap) button.classList.toggle("is-active", clip === active);
   }
 
@@ -102,13 +101,13 @@ export class Hud {
     this.trackMeta.textContent = `requested by ${nowPlaying.request.requestedBy}${queued ? ` · ${queued} up next` : ""}`;
   }
 
-  private setDances(dances: AnimationClipId[]): void {
+  private setDances(dances: DanceMoveId[]): void {
     this.danceButtons.replaceChildren();
     this.danceButtonMap.clear();
     dances.forEach((clip, index) => {
       const button = element("button", { className: "action-button action-button--dance", attributes: { type: "button" } }, [
         element("span", { className: "action-button__key", text: String(index + 1) }),
-        element("span", { text: danceDisplayNames[clip] }),
+        element("span", { text: danceMoveName(clip) }),
       ]);
       button.addEventListener("click", () => this.options.onDance(clip));
       this.danceButtonMap.set(clip, button);

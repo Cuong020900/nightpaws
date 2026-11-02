@@ -1,5 +1,5 @@
 import {
-  characterTypes,
+  selectableCharacterTypes,
   displayNameLimits,
   normalizeDisplayName,
   outfits,
@@ -53,12 +53,12 @@ export class IntroScreen {
     const characterGrid = element(
       "div",
       { className: "choice-grid" },
-      characterTypes.map((characterType) => {
-        const swatches = element("span", { className: "character-card__swatches" }, [
-          element("i", { style: { background: characterType.basePalette.fur } }),
-          element("i", { style: { background: characterType.basePalette.furSecondary } }),
-          element("i", { style: { background: characterType.basePalette.belly } }),
-        ]);
+      selectableCharacterTypes.map((characterType) => {
+        const swatches = element(
+          "span",
+          { className: "character-card__swatches" },
+          characterType.swatches.map((color) => element("i", { style: { background: color } })),
+        );
         const button = element("button", { className: "character-card", attributes: { type: "button" } }, [
           swatches,
           element("strong", { text: characterType.displayName }),

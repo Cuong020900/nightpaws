@@ -1,6 +1,6 @@
 import {
   apiRoutePatterns,
-  findCharacterType,
+  findSelectableCharacterType,
   findOutfit,
   normalizeDisplayName,
   type CharacterAppearance,
@@ -32,7 +32,7 @@ type ValidatedSave = { displayName: string; appearance: CharacterAppearance } | 
 function validateSave(body: SavePlayerBody): ValidatedSave {
   const displayName = normalizeDisplayName(body.displayName);
   if (!displayName) return { error: "Display name must be 2 to 18 characters." };
-  if (!findCharacterType(body.appearance.characterTypeId)) return { error: "Unknown character type." };
+  if (!findSelectableCharacterType(body.appearance.characterTypeId)) return { error: "Unknown character type." };
   if (!findOutfit(body.appearance.outfitId)) return { error: "Unknown outfit." };
   return { displayName, appearance: body.appearance };
 }
