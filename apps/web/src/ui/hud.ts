@@ -22,6 +22,7 @@ export class Hud {
   private readonly monitor: HTMLElement;
   private readonly danceButtons: HTMLElement;
   private readonly danceButtonMap = new Map<DanceMoveId, HTMLButtonElement>();
+  private readonly concealButton: HTMLButtonElement;
 
   constructor(private readonly options: HudOptions) {
     this.playerName = element("strong", { className: "player-chip__name" });
@@ -76,12 +77,16 @@ export class Hud {
       this.danceButtons,
     ]);
 
+    this.concealButton = element("button", { className: "chip-button hud__toggle", text: "Hide UI · H", attributes: { type: "button", "aria-pressed": "false" } });
+    this.concealButton.addEventListener("click", () => this.toggleConcealed());
+
     this.root = element("div", { className: "hud hud--hidden" }, [
       playerChip,
+      this.concealButton,
       this.monitor,
       element("div", { className: "hud__joystick" }, [createJoystick(options.onJoystick)]),
       element("div", { className: "hud__actions" }, [dancePanel, requestButton]),
-      element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · 1-0, Z-B to dance · Q/E to cycle" }),
+      element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · Space to jump · 1-0, Z-N to dance · Q/E to cycle · H hides UI" }),
     ]);
   }
 
@@ -93,6 +98,16 @@ export class Hud {
 
   hide(): void {
     this.root.classList.add("hud--hidden");
+  }
+
+  get isShown(): boolean {
+    return !this.root.classList.contains("hud--hidden");
+  }
+
+  toggleConcealed(): void {
+    const concealed = this.root.classList.toggle("hud--concealed");
+    this.concealButton.textContent = concealed ? "Show UI · H" : "Hide UI · H";
+    this.concealButton.setAttribute("aria-pressed", String(concealed));
   }
 
   setActiveDance(active: DanceMoveId | null): void {

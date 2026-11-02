@@ -16,6 +16,7 @@ export const danceMoves: DanceMoveDescriptor[] = [
   { id: "floss", displayName: "Floss" },
   { id: "shoot", displayName: "Shoot" },
   { id: "millyrock", displayName: "Milly Rock" },
+  { id: "gangnam", displayName: "Gangnam Gallop" },
 ];
 
 export const allDanceMoveIds: DanceMoveId[] = danceMoves.map((move) => move.id);

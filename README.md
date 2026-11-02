@@ -30,8 +30,10 @@ The web dev server reads `NIGHTPAWS_API_URL`.
 
 - Drag to orbit the camera. Use the mouse wheel or pinch to zoom.
 - Move with WASD, the arrow keys, or the on-screen joystick.
-- Dance with the dance buttons, keys `1`–`0` and `Z`–`B`, or cycle moves with
+- Dance with the dance buttons, keys `1`–`0` and `Z`–`N`, or cycle moves with
   `Q`/`E`. Moving cancels the dance.
+- Jump with `Space`.
+- Hide or show the HUD with `H` or the Hide UI button.
 - Queue a YouTube link or video id with the ♪ Request button (or `M`).
 
 ## Layout
@@ -41,7 +43,7 @@ pnpm workspaces:
 - `packages/shared`: data and types shared by client and server.
   - Character descriptors: height, walk speed, model source (the procedural
     hero panda or a GLB asset), and the dance moves it can do.
-  - Dance moves: the fifteen club dance loops and their names.
+  - Dance moves: the sixteen club dance loops and their names.
   - Outfits: shared color schemes.
   - Scene descriptors: walkable area, spawn point, bot population.
   - Music-request and player-profile shapes, API routes, and the registries

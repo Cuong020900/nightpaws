@@ -102,9 +102,7 @@ export function buildRoom(parent: THREE.Object3D, neon: NeonPalette): RoomParts 
 }
 
 export interface StageParts {
-  ledCanvas: HTMLCanvasElement;
-  ledTexture: THREE.CanvasTexture;
-  ledGrid: HTMLCanvasElement;
+  screen: THREE.Mesh<THREE.PlaneGeometry>;
   decks: THREE.Mesh[];
   mixerLeds: THREE.Mesh[];
   speakerRings: THREE.Mesh[];
@@ -118,19 +116,7 @@ export function buildStage(parent: THREE.Object3D, neon: NeonPalette, steel: THR
   place(parent, new THREE.CylinderGeometry(3.2, 3.2, 1.1, 48, 1, false, -Math.PI / 2, Math.PI), [stageSide, stageTop, stageSide], [0, 0.55, -9.4]);
   place(parent, new THREE.TorusGeometry(3.22, 0.035, 8, 64, Math.PI), neon.material(1, 2.6, { pulse: 0.5 }), [0, 1.08, -9.4], [Math.PI / 2, 0, 0]);
   for (const sx of [-1, 1]) place(parent, new THREE.BoxGeometry(6.3, 0.05, 0.05), neon.material(0, 2.6, { pulse: 0.5 }), [sx * 6.35, 1.07, -9.38]);
-  const ledCanvas = document.createElement("canvas");
-  ledCanvas.width = 512;
-  ledCanvas.height = 214;
-  const ledTexture = new THREE.CanvasTexture(ledCanvas);
-  ledTexture.colorSpace = THREE.SRGBColorSpace;
-  place(parent, new THREE.PlaneGeometry(17.6, 7.3), new THREE.MeshBasicMaterial({ map: ledTexture, color: new THREE.Color(1.15, 1.15, 1.15) }), [0, 4.8, -13.92]);
-  const ledGrid = document.createElement("canvas");
-  ledGrid.width = 6;
-  ledGrid.height = 6;
-  const gridContext = ledGrid.getContext("2d")!;
-  gridContext.fillStyle = "rgba(0,0,0,0.62)";
-  gridContext.fillRect(4, 0, 2, 6);
-  gridContext.fillRect(0, 4, 6, 2);
+  const screen = place(parent, new THREE.PlaneGeometry(17.6, 7.3), new THREE.MeshBasicMaterial({ color: 0x000000 }), [0, 4.8, -13.92]) as THREE.Mesh<THREE.PlaneGeometry>;
   const gold = metalMaterial("#b8913a", { roughness: 0.35 });
   for (const sx of [-1, 1]) place(parent, new THREE.BoxGeometry(0.55, 7.9, 0.55), gold, [sx * 9.1, 5.05, -13.55]);
   place(parent, new THREE.BoxGeometry(18.75, 0.55, 0.55), gold, [0, 8.75, -13.55]);
@@ -174,7 +160,7 @@ export function buildStage(parent: THREE.Object3D, neon: NeonPalette, steel: THR
     place(parent, new THREE.BoxGeometry(1.5, 0.95, 1.0), cabinet, [sx * 7.6, 0.475, -8.9]);
     speakerRings.push(place(parent, new THREE.TorusGeometry(0.34, 0.025, 8, 32), neon.material(sx < 0 ? 0 : 1, 2.4, { pulse: 1 }), [sx * 7.6, 0.48, -8.38]));
   }
-  return { ledCanvas, ledTexture, ledGrid, decks, mixerLeds, speakerRings };
+  return { screen, decks, mixerLeds, speakerRings };
 }
 
 export interface DanceFloorTile {

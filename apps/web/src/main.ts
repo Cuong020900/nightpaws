@@ -98,6 +98,7 @@ async function boot(): Promise<void> {
 
   game.input.onKeyPress((code) => {
     if (code === "KeyM" && game.currentMode === "playing") dialog.open();
+    if (code === "KeyH" && game.currentMode === "playing" && hud.isShown) hud.toggleConcealed();
   });
   window.setInterval(() => hud.setActiveDance(game.activeDance), 150);
 

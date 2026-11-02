@@ -61,6 +61,12 @@ export function blendPose(from: Pose, to: Pose, weight: number): Pose {
   return result;
 }
 
+export function addPose(base: Pose, delta: Pose): Pose {
+  const result = zeroPose();
+  for (const field of poseFields) result[field] = base[field] + delta[field];
+  return result;
+}
+
 export function mirrorPose(pose: Pose): Pose {
   const result = { ...pose };
   for (const field of ["px", "ry", "tw", "ct", "cr", "hy", "hz"] as const) result[field] = -pose[field];
@@ -193,6 +199,59 @@ function shootPose(beats: number): Pose {
   P.hy = 0.25 * kick;
   P.d = 0.04 + 0.06 * land * (1 - knee);
   return fract(beats / 4) < 0.5 ? P : mirrorPose(P);
+}
+
+function gangnamPose(beats: number): Pose {
+  const P = zeroPose();
+  const ph = beats * TAU;
+  const hop = Math.abs(Math.sin(ph));
+  const side = squareWave(ph / 2);
+  const freeR = Math.max(0, side);
+  const freeL = Math.max(0, -side);
+  const bar = ((beats % 8) + 8) % 8;
+  const lasso = ease((bar - 3.75) * 4) * (1 - ease((bar - 7.75) * 4));
+  const swirl = ph * 2;
+  P.y = 0.035 * hop;
+  P.d = 0.04 + 0.06 * (1 - hop);
+  P.px = 0.07 * side;
+  P.tw = 0.08 * side;
+  P.ct = 0.06 * side;
+  P.cr = -0.05 * side;
+  P.cp = -0.05;
+  P.hx = 0.1 * hop - 0.04 - 0.12 * lasso;
+  P.hy = 0.1 * Math.sin(ph / 4);
+  P.fRu = 0.11 * hop * freeR;
+  P.fRs = 0.05 * freeR;
+  P.fRf = 0.03 * freeR;
+  P.fLu = 0.11 * hop * freeL;
+  P.fLs = -0.05 * freeL;
+  P.fLf = 0.03 * freeL;
+  const reinsSwing = 0.55 + 0.08 * hop;
+  P.aLs = lerp(reinsSwing, 0.7, lasso);
+  P.aLr = lerp(-0.85, -0.45, lasso);
+  P.eL = lerp(1.5, 1.2, lasso);
+  P.wL = 0.3;
+  P.aRs = lerp(reinsSwing, 0.5 + 0.25 * Math.sin(swirl), lasso);
+  P.aRr = lerp(-0.85, 2.3 + 0.2 * Math.cos(swirl), lasso);
+  P.eR = lerp(1.5, 0.75, lasso);
+  P.wR = lerp(0.3, 1.1 * Math.sin(swirl), lasso);
+  P.gL = 0.9;
+  P.gR = lerp(0.9, 0.7, lasso);
+  return fract(beats / 16) < 0.5 ? P : mirrorPose(P);
+}
+
+export function jumpPose(airborne: number, squash: number): Pose {
+  const P = zeroPose();
+  P.fLu = P.fRu = 0.14 * airborne;
+  P.fLf = 0.05 * airborne;
+  P.fRf = -0.03 * airborne;
+  P.aLr = P.aRr = 1.1 * airborne;
+  P.aLs = P.aRs = 0.35 * airborne;
+  P.eL = P.eR = 0.5 * airborne + 0.4 * squash;
+  P.hx = -0.1 * airborne + 0.12 * squash;
+  P.cp = 0.1 * squash;
+  P.d = 0.1 * squash;
+  return P;
 }
 
 export function dancePose(key: PoseKey, beats: number): Pose {
@@ -334,6 +393,8 @@ export function dancePose(key: PoseKey, beats: number): Pose {
       return woahPose(beats);
     case "shoot":
       return shootPose(beats);
+    case "gangnam":
+      return gangnamPose(beats);
     case "runningman": {
       const step = ph / 2;
       const liftL = Math.max(0, Math.sin(step));

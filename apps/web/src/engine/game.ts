@@ -71,6 +71,10 @@ export class Game {
     this.bots.populate(this.scene.descriptor.bots.count, this.scene.descriptor.bots.namePool);
 
     this.input.onKeyPress((code) => {
+      if (code === "Space") {
+        this.jump();
+        return;
+      }
       const step = danceCycleKeys[code];
       if (step) {
         this.cycleEmote(step);
@@ -119,6 +123,7 @@ export class Game {
     this.orbit.pitch = 0.42;
     this.orbit.distance = 7.5;
     this.orbit.enabled = true;
+    this.input.capturing = true;
     this.player.setLabelVisible(true);
     this.focusLights.setActive(false);
   }
@@ -126,6 +131,7 @@ export class Game {
   returnToIntro(): void {
     this.mode = "intro";
     this.orbit.enabled = false;
+    this.input.capturing = false;
     this.orbit.constrain = (focus, camera) => this.scene.constrainCamera(focus, camera);
     this.focusLights.setActive(true);
     this.player.stopDancing();
@@ -137,6 +143,11 @@ export class Game {
     if (this.mode !== "playing") return;
     if (this.player.currentDance === move) this.player.stopDancing();
     else this.player.dance(move);
+  }
+
+  jump(): void {
+    if (this.mode !== "playing") return;
+    this.player.jump();
   }
 
   cycleEmote(step: number): void {

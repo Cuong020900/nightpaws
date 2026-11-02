@@ -22,9 +22,8 @@ import {
 import { ClubCast } from "./club-cast.ts";
 import { fract, NeonPalette, neonSynthMood, random, TAU } from "./club-kit.ts";
 import { ClubLighting } from "./club-lighting.ts";
-import { LedWall } from "./led-wall.ts";
+import { VjScreen } from "./vj-screen.ts";
 
-const ledRepaintEveryFrames = 3;
 const balconyEdgeZ = 9.9;
 const balconyUnderside = 3.95;
 
@@ -70,12 +69,11 @@ class NeonBarModule implements SceneModule {
   private readonly chandelier: ChandelierParts;
   private readonly vip: VipParts;
   private readonly lighting: ClubLighting;
-  private readonly ledWall: LedWall;
+  private readonly vjScreen: VjScreen;
   private readonly cast: ClubCast;
   private readonly tileColor = new THREE.Color();
   private readonly cableAnchor = new THREE.Vector3();
   private readonly cameraRay = new THREE.Vector3();
-  private frames = 0;
 
   constructor(readonly descriptor: SceneDescriptor) {
     this.root.name = `scene:${descriptor.id}`;
@@ -99,7 +97,7 @@ class NeonBarModule implements SceneModule {
     buildEntrance(this.root, this.neon, this.room.steel);
     buildDecor(this.root);
     this.lighting = new ClubLighting(this.root, this.room.steel, this.neon, mood);
-    this.ledWall = new LedWall(this.stage, this.neon);
+    this.vjScreen = new VjScreen(this.stage.screen, this.neon);
     this.cast = new ClubCast(this.root);
     this.obstacles = [...venueObstacles, ...this.cast.obstacles];
   }
@@ -110,7 +108,6 @@ class NeonBarModule implements SceneModule {
     const energy = music.energy;
     const pulse = Math.pow(1 - fract(beats), 3) * (0.4 + 0.6 * energy);
     const phase = beats * TAU;
-    this.frames += 1;
 
     this.neon.update(time, pulse);
     rimColor.value.copy(this.neon.color(1)).multiplyScalar(0.3).add(this.tileColor.copy(this.neon.color(0)).multiplyScalar(0.18));
@@ -130,7 +127,7 @@ class NeonBarModule implements SceneModule {
       this.vip.sparkPositions[i * 3 + 2] = Math.sin(angle) * life * 0.25;
     });
     this.vip.sparkler.geometry.attributes.position!.needsUpdate = true;
-    if (this.frames % ledRepaintEveryFrames === 0) this.ledWall.draw(time, beats, energy);
+    this.vjScreen.update(time, dt, beats, energy, pulse);
     this.cast.update(frame);
   }
 
@@ -151,11 +148,12 @@ class NeonBarModule implements SceneModule {
   }
 
   showMusicState(state: RoomMusicState | null): void {
-    this.ledWall.showMusicState(state);
+    this.vjScreen.showMusicState(state);
   }
 
   dispose(): void {
     this.cast.dispose();
+    this.vjScreen.dispose();
     this.neon.dispose();
     this.root.removeFromParent();
   }

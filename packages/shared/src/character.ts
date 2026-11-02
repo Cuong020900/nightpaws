@@ -15,7 +15,8 @@ export type DanceMoveId =
   | "dougie"
   | "floss"
   | "shoot"
-  | "millyrock";
+  | "millyrock"
+  | "gangnam";
 
 export interface DanceMoveDescriptor {
   id: DanceMoveId;

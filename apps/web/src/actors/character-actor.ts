@@ -37,6 +37,9 @@ const turnSpeed = 10;
 const strideLength = 0.55;
 const fullDetailDistance = 10;
 const halfRateDistance = 18;
+const jumpGravity = 22;
+const jumpApexPerHeight = 0.42;
+const landingSeconds = 0.18;
 
 let blobTexture: THREE.CanvasTexture | null = null;
 
@@ -82,12 +85,17 @@ const bounds = new THREE.Sphere();
 
 export class CharacterActor {
   readonly object = new THREE.Group();
+  private readonly lift = new THREE.Group();
   readonly radius = 0.42;
   facing = 0;
   private descriptorValue!: CharacterTypeDescriptor;
   private model!: CharacterModel;
   private animator!: CharacterAnimator;
   private shadow: THREE.Mesh | null = null;
+  private shadowSize = 1;
+  private jumpHeight = 0;
+  private jumpVelocity = 0;
+  private landing = 0;
   private label: THREE.Sprite | null = null;
   private readonly velocity = new THREE.Vector3();
   private speed = 0;
@@ -102,6 +110,7 @@ export class CharacterActor {
 
   constructor(private readonly options: CharacterActorOptions) {
     this.name = options.name;
+    this.object.add(this.lift);
     this.setAppearance(options.appearance);
   }
 
@@ -136,14 +145,15 @@ export class CharacterActor {
   setAppearance(appearance: CharacterAppearance): void {
     const descriptor = requireCharacterType(appearance.characterTypeId);
     const outfit = requireOutfit(appearance.outfitId);
-    if (this.model) this.object.remove(this.model.root);
+    if (this.model) this.lift.remove(this.model.root);
     this.descriptorValue = descriptor;
     this.appearanceValue = { characterTypeId: descriptor.id, outfitId: outfit.id };
     this.model = buildCharacterModel(descriptor, outfit, this.options.quality ?? "crowd");
     this.animator = new CharacterAnimator(this.model);
-    this.object.add(this.model.root);
+    this.lift.add(this.model.root);
     if (this.shadow) this.object.remove(this.shadow);
-    this.shadow = blobShadow(descriptor.height * (this.model.procedural ? 0.9 : 0.75));
+    this.shadowSize = descriptor.height * (this.model.procedural ? 0.9 : 0.75);
+    this.shadow = blobShadow(this.shadowSize);
     this.object.add(this.shadow);
     if (this.danceMove && !descriptor.dances.includes(this.danceMove)) this.danceMove = null;
     this.refreshLabel();
@@ -171,6 +181,14 @@ export class CharacterActor {
     this.danceMove = null;
   }
 
+  jump(): boolean {
+    if (this.jumpHeight > 0 || this.jumpVelocity > 0) return false;
+    this.danceMove = null;
+    this.jumpVelocity = Math.sqrt(2 * jumpGravity * jumpApexPerHeight * this.descriptorValue.height);
+    this.jumpHeight = 0.0001;
+    return true;
+  }
+
   moveWithVelocity(deltaSeconds: number, desiredVelocity: THREE.Vector3, space: WalkableSpace | null): void {
     this.velocity.copy(desiredVelocity);
     const speed = this.velocity.length();
@@ -194,6 +212,7 @@ export class CharacterActor {
     this.velocity.set(0, 0, 0);
     this.object.rotation.y = this.facing;
     this.pendingSeconds += deltaSeconds;
+    this.updateJump(deltaSeconds);
 
     let lite = false;
     if (view && !this.options.alwaysFullDetail) {
@@ -221,6 +240,8 @@ export class CharacterActor {
       mirrored: this.options.mirrored ?? false,
       intensity: this.options.danceIntensity ?? 1,
       lite,
+      airborne: THREE.MathUtils.clamp(this.jumpHeight / (jumpApexPerHeight * this.descriptorValue.height * 0.5), 0, 1),
+      landing: this.landing,
     });
     this.pendingSeconds = 0;
   }
@@ -231,6 +252,23 @@ export class CharacterActor {
     this.label?.material.dispose();
   }
 
+  private updateJump(deltaSeconds: number): void {
+    if (this.jumpHeight > 0) {
+      this.jumpVelocity -= jumpGravity * deltaSeconds;
+      this.jumpHeight += this.jumpVelocity * deltaSeconds;
+      if (this.jumpHeight <= 0) {
+        this.jumpHeight = 0;
+        this.jumpVelocity = 0;
+        this.landing = 1;
+      }
+    } else if (this.landing > 0) {
+      this.landing = Math.max(0, this.landing - deltaSeconds / landingSeconds);
+    }
+    this.lift.position.y = this.jumpHeight;
+    const apex = jumpApexPerHeight * this.descriptorValue.height;
+    this.shadow?.scale.setScalar(this.shadowSize * (1 - 0.4 * Math.min(1, this.jumpHeight / apex)));
+  }
+
   private poseKey(beats: number): PoseKey | null {
     if (this.routine === "dj") return "dj";
     if (this.routine === "auto") return danceMoves[Math.floor(beats / 16) % danceMoves.length]!.id;
@@ -239,7 +277,7 @@ export class CharacterActor {
 
   private refreshLabel(): void {
     if (this.label) {
-      this.object.remove(this.label);
+      this.lift.remove(this.label);
       this.label.material.map?.dispose();
       this.label.material.dispose();
       this.label = null;
@@ -248,6 +286,6 @@ export class CharacterActor {
     this.label = createNameLabel(this.name, { accent: this.options.labelAccent, highlighted: this.options.highlighted });
     this.label.position.set(0, this.headHeight + 0.35, 0);
     this.label.visible = this.labelVisible;
-    this.object.add(this.label);
+    this.lift.add(this.label);
   }
 }

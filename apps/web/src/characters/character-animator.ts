@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { CharacterModel } from "./character-model.ts";
-import { applyPose, blendPose, dancePose, heroIdlePose, mirrorPose, scalePose, walkPose, type PoseKey } from "./dance-poses.ts";
+import { addPose, applyPose, blendPose, dancePose, heroIdlePose, jumpPose, mirrorPose, scalePose, walkPose, zeroPose, type PoseKey } from "./dance-poses.ts";
 
 export interface AnimationInput {
   deltaSeconds: number;
@@ -13,6 +13,8 @@ export interface AnimationInput {
   mirrored: boolean;
   intensity: number;
   lite: boolean;
+  airborne: number;
+  landing: number;
 }
 
 const lerp = THREE.MathUtils.lerp;
@@ -44,6 +46,7 @@ export class CharacterAnimator {
     this.walkWeight = lerp(this.walkWeight, input.moving ? 1 : 0, 1 - Math.exp(-dt * 8));
     this.danceWeight = lerp(this.danceWeight, input.dance && !input.moving ? 1 : 0, 1 - Math.exp(-dt * 3));
     const beats = input.beats + this.beatOffset;
+    const jumping = input.airborne + input.landing > 0.002;
 
     if (model.mixer) {
       if (model.walk) {
@@ -58,17 +61,21 @@ export class CharacterAnimator {
       let pose = heroIdlePose(input.elapsedSeconds, beats, this.offset);
       if (this.walkWeight > 0.002) pose = blendPose(pose, walkPose(input.stridePhase), this.walkWeight);
       if (this.danceWeight > 0.002 && this.lastDance) pose = blendPose(pose, this.styled(dancePose(this.lastDance, beats), input), this.danceWeight);
+      if (jumping) pose = addPose(pose, jumpPose(input.airborne, input.landing));
       applyPose(model, pose, input.lite);
       this.blink(input.elapsedSeconds);
       return;
     }
 
-    if (this.danceWeight < 0.002 || !this.lastDance) {
+    const dancing = this.danceWeight >= 0.002 && this.lastDance !== null;
+    if (!dancing && !jumping) {
       model.root.position.set(0, 0, 0);
       model.root.rotation.set(0, 0, 0);
       return;
     }
-    applyPose(model, scalePose(this.styled(dancePose(this.lastDance, beats), input), this.danceWeight), input.lite);
+    let pose = dancing ? scalePose(this.styled(dancePose(this.lastDance!, beats), input), this.danceWeight) : zeroPose();
+    if (jumping) pose = addPose(pose, jumpPose(input.airborne, input.landing));
+    applyPose(model, pose, input.lite);
   }
 
   private styled(pose: ReturnType<typeof dancePose>, input: AnimationInput): ReturnType<typeof dancePose> {

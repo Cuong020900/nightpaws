@@ -15,7 +15,10 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
 
+const capturedKeys = new Set(["Space"]);
+
 export class MovementInput {
+  capturing = false;
   private readonly pressed = new Set<string>();
   private readonly joystick = new THREE.Vector2();
   private readonly keyListeners = new Set<(code: string) => void>();
@@ -27,9 +30,13 @@ export class MovementInput {
         this.pressed.add(event.code);
         event.preventDefault();
       }
+      if (this.capturing && capturedKeys.has(event.code)) event.preventDefault();
       if (!event.repeat) for (const listener of this.keyListeners) listener(event.code);
     });
-    window.addEventListener("keyup", (event) => this.pressed.delete(event.code));
+    window.addEventListener("keyup", (event) => {
+      this.pressed.delete(event.code);
+      if (this.capturing && capturedKeys.has(event.code) && !isTypingTarget(event.target)) event.preventDefault();
+    });
     window.addEventListener("blur", () => this.pressed.clear());
   }
 
