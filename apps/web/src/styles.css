@@ -410,7 +410,7 @@ input {
 .monitor {
   pointer-events: auto;
   flex: none;
-  width: min(340px, 100%, max(200px, 44vh - 30px));
+  width: min(340px, 100%);
   border-radius: 20px;
   padding: 10px;
   background: linear-gradient(160deg, rgba(36, 14, 70, 0.9), rgba(10, 4, 22, 0.92));
@@ -802,6 +802,49 @@ input {
 @media (max-width: 859px) {
   .dance-buttons {
     grid-template-columns: repeat(2, minmax(0, auto));
+  }
+}
+
+@media (max-height: 700px) and (min-width: 761px) and (orientation: landscape) {
+  .hud__rail {
+    flex-direction: row-reverse;
+    align-items: flex-start;
+  }
+
+  .monitor {
+    width: clamp(260px, 36%, 340px);
+  }
+
+  .hud__actions {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-top: 0;
+    align-self: stretch;
+    justify-content: flex-end;
+  }
+
+  .dance-panel {
+    flex: 1 1 0;
+    justify-content: flex-end;
+  }
+
+  .dance-buttons {
+    grid-template-columns: repeat(auto-fill, minmax(150px, max-content));
+    justify-content: end;
+    gap: 6px;
+  }
+
+  .action-button--dance {
+    padding: 5px 10px 5px 5px;
+    gap: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .action-button--dance .action-button__key {
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
   }
 }
 
