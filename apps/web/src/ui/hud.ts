@@ -1,4 +1,5 @@
 import { danceMoveName, type DanceMoveId, type RoomMusicState } from "@nightpaws/shared";
+import { danceHotkeyLabel } from "../engine/dance-hotkeys.ts";
 import { element } from "./dom.ts";
 import { createJoystick } from "./joystick.ts";
 
@@ -7,6 +8,7 @@ export interface HudOptions {
   onJoystick: (x: number, y: number) => void;
   onRequestMusic: () => void;
   onDance: (clip: DanceMoveId) => void;
+  onCycleDance: (step: number) => void;
   onToggleMute: () => boolean;
   onChangeLook: () => void;
 }
@@ -60,13 +62,26 @@ export class Hud {
     ]);
     requestButton.addEventListener("click", () => options.onRequestMusic());
     this.danceButtons = element("div", { className: "dance-buttons" });
+    const cycleButton = (step: number, text: string, label: string) => {
+      const button = element("button", { className: "chip-button dance-cycle__button", text, attributes: { type: "button", "aria-label": label } });
+      button.addEventListener("click", () => options.onCycleDance(step));
+      return button;
+    };
+    const dancePanel = element("div", { className: "dance-panel" }, [
+      element("div", { className: "dance-cycle" }, [
+        cycleButton(-1, "◀ Q", "Previous dance"),
+        element("span", { className: "dance-cycle__label", text: "Dances" }),
+        cycleButton(1, "E ▶", "Next dance"),
+      ]),
+      this.danceButtons,
+    ]);
 
     this.root = element("div", { className: "hud hud--hidden" }, [
       playerChip,
       this.monitor,
       element("div", { className: "hud__joystick" }, [createJoystick(options.onJoystick)]),
-      element("div", { className: "hud__actions" }, [this.danceButtons, requestButton]),
-      element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · 1-8 to dance" }),
+      element("div", { className: "hud__actions" }, [dancePanel, requestButton]),
+      element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · 1-0, Z-B to dance · Q/E to cycle" }),
     ]);
   }
 
@@ -106,7 +121,7 @@ export class Hud {
     this.danceButtonMap.clear();
     dances.forEach((clip, index) => {
       const button = element("button", { className: "action-button action-button--dance", attributes: { type: "button" } }, [
-        element("span", { className: "action-button__key", text: String(index + 1) }),
+        element("span", { className: "action-button__key", text: danceHotkeyLabel(index) }),
         element("span", { text: danceMoveName(clip) }),
       ]);
       button.addEventListener("click", () => this.options.onDance(clip));

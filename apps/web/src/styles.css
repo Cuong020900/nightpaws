@@ -494,9 +494,31 @@ input {
   gap: 12px;
 }
 
+.dance-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.dance-cycle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dance-cycle__label {
+  font-family: var(--display-font);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
 .dance-buttons {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, auto));
+  grid-template-columns: repeat(3, minmax(0, auto));
   gap: 8px;
 }
 
@@ -735,7 +757,22 @@ input {
   }
 
   .dance-buttons {
+    grid-template-columns: repeat(2, minmax(0, auto));
     gap: 6px;
+    max-height: 34vh;
+    overflow-y: auto;
+    padding-bottom: 6px;
+    pointer-events: auto;
+    scrollbar-width: none;
+  }
+
+  .dance-panel {
+    gap: 6px;
+  }
+
+  .dance-cycle__button {
+    padding: 4px 10px;
+    font-size: 11.5px;
   }
 
   .action-button--dance {

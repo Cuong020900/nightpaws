@@ -35,12 +35,16 @@ export interface Pose {
   fRu: number;
   fRf: number;
   fRs: number;
+  wL: number;
+  wR: number;
+  gL: number;
+  gR: number;
 }
 
 type PoseField = keyof Pose;
 
 export function zeroPose(): Pose {
-  return { y: 0, d: 0, px: 0, ry: 0, tw: 0, ct: 0, cp: 0, cr: 0, hx: 0, hy: 0, hz: 0, aLr: 0, aLs: 0, aRr: 0, aRs: 0, eL: 0, eR: 0, fLu: 0, fLf: 0, fLs: 0, fRu: 0, fRf: 0, fRs: 0 };
+  return { y: 0, d: 0, px: 0, ry: 0, tw: 0, ct: 0, cp: 0, cr: 0, hx: 0, hy: 0, hz: 0, aLr: 0, aLs: 0, aRr: 0, aRs: 0, eL: 0, eR: 0, fLu: 0, fLf: 0, fLs: 0, fRu: 0, fRf: 0, fRs: 0, wL: 0, wR: 0, gL: 0, gR: 0 };
 }
 
 const poseFields = Object.keys(zeroPose()) as PoseField[];
@@ -72,6 +76,10 @@ export function mirrorPose(pose: Pose): Pose {
   result.fRf = pose.fLf;
   result.fLs = -pose.fRs;
   result.fRs = -pose.fLs;
+  result.wL = pose.wR;
+  result.wR = pose.wL;
+  result.gL = pose.gR;
+  result.gR = pose.gL;
   return result;
 }
 
@@ -97,6 +105,94 @@ function blendFrames(frames: number[][], index: number, amount: number): number[
   const from = frames[(index + frames.length - 1) % frames.length]!;
   const to = frames[index % frames.length]!;
   return from.map((value, i) => lerp(value, to[i]!, amount));
+}
+
+const beatParity = (beats: number) => ((Math.floor(beats) % 2) + 2) % 2;
+
+function wristRollPose(beats: number): Pose {
+  const P = zeroPose();
+  const ph = beats * TAU;
+  const sway = Math.sin(ph / 2);
+  const groove = Math.pow(0.5 + 0.5 * Math.cos(ph), 1.5);
+  P.d = 0.03 + 0.09 * groove;
+  P.px = 0.12 * sway;
+  P.cr = -0.08 * sway;
+  P.tw = 0.16 * sway;
+  P.ct = 0.1 * Math.sin(ph / 2 + 0.6);
+  P.cp = 0.04 * groove - 0.03;
+  P.hx = -0.07 + 0.12 * groove;
+  P.hy = 0.18 * Math.sin(ph / 4);
+  P.hz = 0.08 * sway;
+  P.fLu = 0.05 * Math.max(0, -sway);
+  P.fRu = 0.05 * Math.max(0, sway);
+  const roll = ph * 2;
+  const rollL = roll;
+  const rollR = roll + Math.PI;
+  P.aLs = 0.85 + 0.22 * Math.sin(rollL);
+  P.aRs = 0.85 + 0.22 * Math.sin(rollR);
+  P.aLr = 0.02 + 0.14 * Math.cos(rollL);
+  P.aRr = 0.02 + 0.14 * Math.cos(rollR);
+  P.eL = 1.75 + 0.32 * Math.cos(rollL);
+  P.eR = 1.75 + 0.32 * Math.cos(rollR);
+  P.wL = 0.95 * Math.sin(rollL + 0.9);
+  P.wR = 0.95 * Math.sin(rollR + 0.9);
+  P.gL = 0.4 + 0.35 * Math.sin(rollL * 2);
+  P.gR = 0.4 + 0.35 * Math.sin(rollR * 2);
+  return P;
+}
+
+function woahPose(beats: number): Pose {
+  const P = zeroPose();
+  const t = fract(beats);
+  const hit = ease(t * 7) * (1 - ease((t - 0.62) * 3));
+  P.d = 0.03 + 0.12 * hit;
+  P.cr = 0.17 * hit;
+  P.tw = 0.24 * hit;
+  P.ry = 0.12 * hit;
+  P.px = -0.06 * hit;
+  P.hx = 0.2 * hit - 0.04;
+  P.hy = 0.38 * hit;
+  P.aLr = lerp(0.3, 0.55, hit);
+  P.aLs = lerp(0.35, 1.0, hit);
+  P.eL = lerp(1.2, 2.15, hit);
+  P.aRr = lerp(0.3, -0.08, hit);
+  P.aRs = lerp(0.35, 0.8, hit);
+  P.eR = lerp(1.2, 1.95, hit);
+  P.wL = 0.4 * hit;
+  P.wR = -0.3 * hit;
+  P.gL = P.gR = 0.35 + 0.65 * hit;
+  P.fRu = 0.05 * hit;
+  P.fRs = -0.04 * hit;
+  return beatParity(beats) === 0 ? P : mirrorPose(P);
+}
+
+function shootPose(beats: number): Pose {
+  const P = zeroPose();
+  const t = fract(beats / 2) * 2;
+  const knee = ease(t * 3) * (1 - ease((t - 0.85) * 3));
+  const kick = ease((t - 0.3) * 4) * (1 - ease((t - 1.05) * 3));
+  const guard = ease(t * 4) * (1 - ease((t - 1.3) * 2.5));
+  const land = Math.pow(Math.max(0, Math.cos(beats * TAU)), 2);
+  P.fLu = 0.28 * knee * (1 - 0.4 * kick);
+  P.fLf = 0.2 * kick;
+  P.fLs = 0.14 * kick;
+  P.aLr = lerp(lerp(0.3, 0.4, guard), 0.8, kick);
+  P.aLs = lerp(lerp(0.4, 0.55, guard), 0.95, kick);
+  P.eL = lerp(lerp(1.4, 1.75, guard), 0.1, kick);
+  P.aRr = lerp(0.3, 0.05, guard);
+  P.aRs = lerp(0.4, 0.75, guard);
+  P.eR = lerp(1.4, 2.0, guard);
+  P.gL = P.gR = 0.4 + 0.6 * guard;
+  P.wL = -0.5 * kick;
+  P.cp = -0.12 * kick + 0.04 * knee;
+  P.ct = 0.24 * kick;
+  P.tw = 0.12 * kick - 0.06 * knee;
+  P.cr = -0.06 * kick;
+  P.px = -0.05 * guard;
+  P.hx = 0.12 * kick + 0.08 * land - 0.04;
+  P.hy = 0.25 * kick;
+  P.d = 0.04 + 0.06 * land * (1 - knee);
+  return fract(beats / 4) < 0.5 ? P : mirrorPose(P);
 }
 
 export function dancePose(key: PoseKey, beats: number): Pose {
@@ -232,6 +328,106 @@ export function dancePose(key: PoseKey, beats: number): Pose {
       P.hx = -0.1 * air + 0.12 * Math.pow(1 - t, 6);
       break;
     }
+    case "wristroll":
+      return wristRollPose(beats);
+    case "woah":
+      return woahPose(beats);
+    case "shoot":
+      return shootPose(beats);
+    case "runningman": {
+      const step = ph / 2;
+      const liftL = Math.max(0, Math.sin(step));
+      const liftR = Math.max(0, -Math.sin(step));
+      const stride = Math.cos(step);
+      P.fLu = 0.3 * Math.pow(liftL, 1.2);
+      P.fRu = 0.3 * Math.pow(liftR, 1.2);
+      P.fLf = -0.18 * stride + 0.06 * liftL;
+      P.fRf = 0.18 * stride + 0.06 * liftR;
+      P.d = 0.07 + 0.08 * Math.pow(Math.abs(stride), 3);
+      P.aLs = 0.85 * stride;
+      P.aRs = -0.85 * stride;
+      P.aLr = P.aRr = 0.3;
+      P.eL = P.eR = 1.6;
+      P.gL = P.gR = 0.85;
+      P.cp = 0.12;
+      P.tw = 0.1 * stride;
+      P.ct = -0.14 * stride;
+      P.hx = 0.08 * Math.pow(Math.abs(stride), 3) - 0.02;
+      P.hz = 0.04 * stride;
+      break;
+    }
+    case "dougie": {
+      const sway = Math.sin(ph / 2);
+      const lean = squareWave(ph / 2);
+      const brushL = Math.pow(Math.max(0, -sway), 1.5);
+      const brushR = Math.pow(Math.max(0, sway), 1.5);
+      const tap = Math.pow(Math.max(0, Math.sin(ph)), 2);
+      P.px = 0.11 * lean;
+      P.cr = 0.13 * lean;
+      P.tw = 0.22 * sway;
+      P.ct = 0.12 * sway;
+      P.cp = -0.09;
+      P.d = 0.04 + 0.05 * Math.pow(Math.max(0, cb), 2);
+      P.aRr = lerp(0.45, 2.3, brushR);
+      P.aRs = lerp(0.3 + 0.45 * brushL, 0.35, brushR);
+      P.eR = lerp(1.2, 1.0, brushR);
+      P.aLr = lerp(0.45, 2.3, brushL);
+      P.aLs = lerp(0.3 + 0.45 * brushR, 0.35, brushL);
+      P.eL = lerp(1.2, 1.0, brushL);
+      P.wL = 0.6 * brushL;
+      P.wR = 0.6 * brushR;
+      P.gL = P.gR = 0.3;
+      P.hz = -0.12 * lean;
+      P.hx = -0.1 + 0.1 * Math.pow(Math.max(0, cb), 2);
+      P.hy = -0.15 * sway;
+      if (lean > 0) P.fRu = 0.05 * tap;
+      else P.fLu = 0.05 * tap;
+      break;
+    }
+    case "floss": {
+      const hips = Math.sin(ph);
+      P.px = 0.1 * hips;
+      P.cr = -0.07 * hips;
+      P.tw = 0.12 * hips;
+      P.d = 0.03 + 0.03 * Math.abs(cb);
+      P.aLr = 0.4 - 0.7 * hips;
+      P.aRr = 0.4 + 0.7 * hips;
+      P.aLs = 0.2 + 0.85 * hips;
+      P.aRs = 0.2 - 0.85 * hips;
+      P.eL = P.eR = 0.15;
+      P.gL = P.gR = 0.9;
+      P.hx = 0.07 * Math.abs(hips) - 0.02;
+      P.hz = 0.06 * hips;
+      P.fLu = 0.03 * Math.max(0, -hips);
+      P.fRu = 0.03 * Math.max(0, hips);
+      break;
+    }
+    case "millyrock": {
+      const rock = Math.sin(ph / 2);
+      const drift = Math.cos(ph / 2);
+      const upL = Math.max(0, rock);
+      const upR = Math.max(0, -rock);
+      P.px = 0.13 * rock;
+      P.tw = 0.26 * rock;
+      P.cr = -0.09 * rock;
+      P.ct = 0.08 * rock;
+      P.hz = 0.09 * rock;
+      P.hy = 0.22 * rock;
+      P.hx = 0.06 * Math.pow(Math.max(0, cb), 2) - 0.03;
+      P.d = 0.05 + 0.05 * Math.pow(Math.max(0, cb), 2);
+      P.fRu = 0.07 * Math.max(0, drift) * Math.abs(Math.sin(ph));
+      P.fLu = 0.07 * Math.max(0, -drift) * Math.abs(Math.sin(ph));
+      P.aLr = 0.35 + 1.4 * upL - 0.4 * upR;
+      P.aLs = 0.5 + 0.35 * upR;
+      P.eL = 1.3 - 0.55 * upL + 0.5 * upR;
+      P.aRr = 0.35 + 1.4 * upR - 0.4 * upL;
+      P.aRs = 0.5 + 0.35 * upL;
+      P.eR = 1.3 - 0.55 * upR + 0.5 * upL;
+      P.wL = 0.5 * upL - 0.3 * upR;
+      P.wR = 0.5 * upR - 0.3 * upL;
+      P.gL = P.gR = 0.5;
+      break;
+    }
     case "dj": {
       const bar = ((beats % 8) + 8) % 8;
       const hype = ease((bar - 5.5) * 2) * (1 - ease((bar - 7.6) * 4));
@@ -316,6 +512,22 @@ function rotateWorldBy(bone: THREE.Object3D, rotation: THREE.Quaternion): void {
   bone.updateMatrixWorld(true);
 }
 
+const fingerChains = ["Index", "Middle", "Pinky"] as const;
+const localCurl = new THREE.Quaternion();
+const curlAxis = new THREE.Vector3(1, 0, 0);
+
+function curlFingers(bones: Record<string, THREE.Object3D>, side: "L" | "R", curl: number): void {
+  for (const finger of fingerChains) {
+    for (const segment of [1, 2, 3]) {
+      const bone = bones[`${finger}${segment}.${side}`];
+      if (!bone) continue;
+      bone.quaternion.multiply(localCurl.setFromAxisAngle(curlAxis, curl * 0.6));
+    }
+  }
+  const thumb = bones[`Thumb1.${side}`];
+  if (thumb) thumb.quaternion.multiply(localCurl.setFromAxisAngle(curlAxis, curl * 0.3));
+}
+
 export function applyPose(model: CharacterModel, P: Pose, lite: boolean): void {
   const bones = model.bones;
   const root = model.root;
@@ -366,17 +578,22 @@ export function applyPose(model: CharacterModel, P: Pose, lite: boolean): void {
     const raise = side === "L" ? P.aLr : P.aRr;
     const swing = side === "L" ? P.aLs : P.aRs;
     const elbow = side === "L" ? P.eL : P.eR;
+    const twist = side === "L" ? P.wL : P.wR;
+    const curl = side === "L" ? P.gL : P.gR;
     rotateWorld(upperArm, X, -swing * sideL);
     rotateWorld(upperArm, F, sign * raise);
+    upperArm.getWorldPosition(a);
+    lowerArm.getWorldPosition(b);
+    c.subVectors(b, a).normalize();
     if (elbow) {
-      upperArm.getWorldPosition(a);
-      lowerArm.getWorldPosition(b);
-      c.subVectors(b, a).normalize();
       d.crossVectors(c, F);
       if (d.lengthSq() < 1e-4) d.copy(X).multiplyScalar(sign);
       d.normalize();
       rotateWorld(lowerArm, d, elbow * sideL);
+      c.applyAxisAngle(d, elbow * sideL);
     }
+    if (curl && !lite) curlFingers(bones, side, curl);
+    if (twist) rotateWorld(lowerArm, c, sign * twist);
   }
 
   if (lite) return;

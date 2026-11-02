@@ -1,6 +1,21 @@
 export type Vector3Tuple = [number, number, number];
 
-export type DanceMoveId = "bounce" | "twostep" | "shuffle" | "robot" | "point" | "handsup" | "roll" | "hype";
+export type DanceMoveId =
+  | "bounce"
+  | "twostep"
+  | "shuffle"
+  | "robot"
+  | "point"
+  | "handsup"
+  | "roll"
+  | "hype"
+  | "wristroll"
+  | "woah"
+  | "runningman"
+  | "dougie"
+  | "floss"
+  | "shoot"
+  | "millyrock";
 
 export interface DanceMoveDescriptor {
   id: DanceMoveId;

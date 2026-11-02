@@ -5,6 +5,7 @@ import { CharacterActor } from "../actors/character-actor.ts";
 import { BeatClock } from "../music/beat-clock.ts";
 import { createSceneModule } from "../scenes/scene-registry.ts";
 import type { SceneModule } from "../scenes/scene-module.ts";
+import { danceCycleKeys, danceHotkeys } from "./dance-hotkeys.ts";
 import { FocusLights } from "./focus-lights.ts";
 import { MovementInput } from "./movement-input.ts";
 import { OrbitCamera } from "./orbit-camera.ts";
@@ -70,8 +71,12 @@ export class Game {
     this.bots.populate(this.scene.descriptor.bots.count, this.scene.descriptor.bots.namePool);
 
     this.input.onKeyPress((code) => {
-      const danceIndex = ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8"].indexOf(code);
-      const dance = this.availableDances[danceIndex];
+      const step = danceCycleKeys[code];
+      if (step) {
+        this.cycleEmote(step);
+        return;
+      }
+      const dance = this.availableDances[danceHotkeys.findIndex((hotkey) => hotkey.code === code)];
       if (dance) this.playEmote(dance);
     });
   }
@@ -132,6 +137,14 @@ export class Game {
     if (this.mode !== "playing") return;
     if (this.player.currentDance === move) this.player.stopDancing();
     else this.player.dance(move);
+  }
+
+  cycleEmote(step: number): void {
+    if (this.mode !== "playing") return;
+    const dances = this.availableDances;
+    if (!dances.length) return;
+    const current = this.player.currentDance ? dances.indexOf(this.player.currentDance) : step > 0 ? -1 : 0;
+    this.player.dance(dances[THREE.MathUtils.euclideanModulo(current + step, dances.length)]!);
   }
 
   setMusicPlaying(isPlaying: boolean): void {

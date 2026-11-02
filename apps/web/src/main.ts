@@ -51,6 +51,7 @@ async function boot(): Promise<void> {
     onJoystick: (x, y) => game.input.setJoystick(x, y),
     onRequestMusic: () => dialog.open(),
     onDance: (clip) => game.playEmote(clip),
+    onCycleDance: (step) => game.cycleEmote(step),
     onToggleMute: () => music.toggleMute(),
     onChangeLook: () => {
       game.returnToIntro();

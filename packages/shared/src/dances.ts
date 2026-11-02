@@ -9,6 +9,13 @@ export const danceMoves: DanceMoveDescriptor[] = [
   { id: "handsup", displayName: "Hands Up" },
   { id: "roll", displayName: "Body Roll & Hit" },
   { id: "hype", displayName: "Hype Jump" },
+  { id: "wristroll", displayName: "Wrist Roll Bounce" },
+  { id: "woah", displayName: "The Woah" },
+  { id: "runningman", displayName: "Running Man" },
+  { id: "dougie", displayName: "Dougie" },
+  { id: "floss", displayName: "Floss" },
+  { id: "shoot", displayName: "Shoot" },
+  { id: "millyrock", displayName: "Milly Rock" },
 ];
 
 export const allDanceMoveIds: DanceMoveId[] = danceMoves.map((move) => move.id);
