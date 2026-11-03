@@ -12,9 +12,14 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly fromServer: boolean,
   ) {
     super(message);
   }
+}
+
+export function isBackendUnavailable(error: unknown): boolean {
+  return !(error instanceof ApiError) || !error.fromServer;
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -24,8 +29,9 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const body = (await response.json().catch(() => null)) as T | ApiErrorBody | null;
   if (!response.ok) {
-    const message = body && typeof body === "object" && "error" in body ? body.error : `Request failed (${response.status})`;
-    throw new ApiError(message, response.status);
+    const fromServer = !!body && typeof body === "object" && "error" in body && typeof body.error === "string";
+    const message = fromServer ? (body as ApiErrorBody).error : `Request failed (${response.status})`;
+    throw new ApiError(message, response.status, fromServer);
   }
   return body as T;
 }

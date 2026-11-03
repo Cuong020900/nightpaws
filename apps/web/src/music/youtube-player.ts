@@ -7,6 +7,7 @@ interface YouTubePlayerHandle {
   isMuted(): boolean;
   setVolume(volume: number): void;
   getPlayerState(): number;
+  getVideoData?(): { title?: string } | undefined;
 }
 
 interface YouTubePlayerEvent {
@@ -75,6 +76,10 @@ export class YouTubeJukebox {
 
   get isPlaying(): boolean {
     return this.state === youtubePlayerStates.playing;
+  }
+
+  get videoTitle(): string | null {
+    return this.player?.getVideoData?.()?.title?.trim() || null;
   }
 
   get muted(): boolean {
