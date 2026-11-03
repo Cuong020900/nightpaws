@@ -9,6 +9,8 @@ export const danceHotkeys: DanceHotkey[] = labels.map((label) => ({ label, code:
 
 export const danceCycleKeys: Record<string, number> = { KeyQ: -1, KeyE: 1 };
 
+export const playerActionKeys = { sit: "KeyR", talk: "KeyT", hold: "KeyY" } as const;
+
 export function danceHotkeyLabel(index: number): string {
   return danceHotkeys[index]?.label ?? "";
 }

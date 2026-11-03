@@ -3,11 +3,12 @@ import * as THREE from "three";
 import { BotCrowd } from "../actors/bot-crowd.ts";
 import { CharacterActor } from "../actors/character-actor.ts";
 import { freeCrowd, type CrowdCue } from "../actors/crowd-cue.ts";
+import { PlayerActions, type PlayerActionState } from "../actors/player-actions.ts";
 import { RemoteCrowd } from "../actors/remote-crowd.ts";
 import { BeatClock } from "../music/beat-clock.ts";
 import { createSceneModule } from "../scenes/scene-registry.ts";
 import type { SceneModule } from "../scenes/scene-module.ts";
-import { danceCycleKeys, danceHotkeys } from "./dance-hotkeys.ts";
+import { danceCycleKeys, danceHotkeys, playerActionKeys } from "./dance-hotkeys.ts";
 import { disposeTree } from "./dispose-tree.ts";
 import { FocusLights } from "./focus-lights.ts";
 import { MovementInput } from "./movement-input.ts";
@@ -41,6 +42,7 @@ export class Game {
   private space: WalkableSpace;
   private bots: BotCrowd;
   private readonly player: CharacterActor;
+  private readonly actions: PlayerActions;
   private readonly beatClock = new BeatClock();
   private readonly timer = new THREE.Timer();
   private readonly view = new ViewSample();
@@ -78,6 +80,7 @@ export class Game {
     this.player.position.copy(this.scene.showcaseSpot);
     this.player.setLabelVisible(false);
     this.world.scene.add(this.player.object);
+    this.actions = new PlayerActions(this.player);
 
     this.bots = this.populateCrowd();
     this.remote = new RemoteCrowd(this.world.scene);
@@ -93,6 +96,19 @@ export class Game {
       }
       if (code === "KeyG") {
         this.toggleCrowdSync();
+        return;
+      }
+      if (code === playerActionKeys.sit) {
+        this.input.releaseKeys();
+        this.toggleSit();
+        return;
+      }
+      if (code === playerActionKeys.hold) {
+        this.toggleHold();
+        return;
+      }
+      if (code === playerActionKeys.talk) {
+        this.talk();
         return;
       }
       const step = danceCycleKeys[code];
@@ -133,6 +149,10 @@ export class Game {
     return this.crowdCue.kind === "sync" ? this.crowdCue.move : null;
   }
 
+  get playerActions(): PlayerActionState {
+    return this.actions.state(this.scene);
+  }
+
   get playerAppearance(): CharacterAppearance {
     return this.player.appearance;
   }
@@ -149,6 +169,7 @@ export class Game {
   }
 
   correctPlayerPosition(x: number, z: number): void {
+    if (this.actions.busy) this.actions.reset();
     this.player.position.set(x, 0, z);
     this.space.constrain(this.player.position, this.player.radius);
   }
@@ -169,6 +190,7 @@ export class Game {
   loadScene(sceneId: string): void {
     if (sceneId === this.sceneModule.descriptor.id) return;
     const next = createSceneModule(sceneId);
+    this.actions.reset();
     this.setCrowdCue(freeCrowd);
     this.bots.dispose();
     const previous = this.sceneModule.root;
@@ -216,6 +238,7 @@ export class Game {
     this.input.capturing = false;
     this.orbit.constrain = (focus, camera) => this.scene.constrainCamera(focus, camera);
     this.focusLights.setActive(true);
+    this.actions.reset();
     this.player.stopDancing();
     this.setCrowdCue(freeCrowd);
     this.player.setLabelVisible(false);
@@ -230,7 +253,26 @@ export class Game {
 
   jump(): void {
     if (this.mode !== "playing") return;
+    if (this.actions.busy) {
+      this.actions.stand();
+      return;
+    }
     if (this.player.jump()) this.onPlayerJump?.();
+  }
+
+  toggleSit(): void {
+    if (this.mode !== "playing") return;
+    this.actions.toggleSit(this.scene);
+  }
+
+  toggleHold(): void {
+    if (this.mode !== "playing") return;
+    this.actions.toggleHold(this.scene);
+  }
+
+  talk(): void {
+    if (this.mode !== "playing") return;
+    this.actions.talk();
   }
 
   cycleEmote(step: number): void {
@@ -254,11 +296,13 @@ export class Game {
     }
     const move = this.player.currentDance ?? this.pickedDance ?? this.availableDances[0];
     if (!move) return;
+    this.actions.stand();
     this.player.dance(move);
     this.syncCrowd(move);
   }
 
   private pickDance(move: DanceMoveId): void {
+    this.actions.stand();
     this.pickedDance = move;
     this.player.dance(move);
     if (this.crowdCue.kind === "sync" && this.crowdCue.move !== move) this.syncCrowd(move);
@@ -307,6 +351,10 @@ export class Game {
 
   private updatePlayerMovement(deltaSeconds: number): void {
     this.input.readIntent(this.intent);
+    if (this.actions.update(deltaSeconds, this.elapsedSeconds, this.intent.lengthSq() > 0.0025)) {
+      this.orbit.follow(this.player.position, 1.1);
+      return;
+    }
     this.velocity
       .copy(this.orbit.forwardOnGround)
       .multiplyScalar(this.intent.y)

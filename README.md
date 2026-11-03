@@ -113,6 +113,14 @@ in [Configuration](#configuration). Its defaults match `pnpm db:up`.
 - Dance with the dance buttons, keys `1`–`0` and `Z`–`N`, or cycle moves with
   `Q`/`E`. Moving cancels the dance.
 - Jump with `Space`.
+- Sit with `R` or the Sit button: near a free chair, sofa, bar stool, or booth
+  you take that seat, elsewhere you sit on the floor. Move or press it again to
+  stand.
+- Hold a drink with `Y` or the Hold button, and press it again to drop it. Near
+  the office water cooler or coffee machine, or the bar counter, you pour one
+  first.
+- Talk with `T` or the Talk button to show a speech bubble. Press again for the
+  next phrase.
 - Hide or show the HUD with `H` or the Hide UI button.
 - Switch venue from the intro screen. In game, the Look & venue button returns
   to it. `?venue=office` in the URL opens a venue directly, and the browser

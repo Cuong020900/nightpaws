@@ -121,6 +121,14 @@ export function officePose(key: OfficePoseKey, seconds: number, offset: number, 
 export function seatedPose(height: number, weight: number): Pose {
   const P = zeroPose();
   P.y = height * weight;
+  if (height < 0) {
+    P.fLu = P.fRu = -height * weight;
+    P.fLf = P.fRf = -height * 0.9 * weight;
+    P.fLs = -0.06 * weight;
+    P.fRs = 0.06 * weight;
+    P.cp = -0.06 * weight;
+    return P;
+  }
   P.fLf = P.fRf = 0.14 * weight;
   P.fLu = P.fRu = 0.07 * weight;
   P.fLs = -0.02 * weight;

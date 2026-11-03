@@ -1,12 +1,17 @@
 import * as THREE from "three";
 import { createCanvasTexture } from "../../engine/canvas-texture.ts";
 import { venueMaterial } from "../../engine/shading.ts";
+import type { DrinkKind } from "../scene-module.ts";
 
 export type BubbleKind = "dots0" | "dots1" | "dots2" | "laugh" | "idea";
 
 export const talkingFrames: BubbleKind[] = ["dots0", "dots1", "dots2"];
 
-function paintBubble(context: CanvasRenderingContext2D, width: number, height: number, kind: BubbleKind): void {
+const bubbleHeight = 176;
+const speechFont = '900 58px Nunito, "Arial Black", system-ui, sans-serif';
+const drinkIndex: Record<DrinkKind, number> = { water: 0, coffee: 1, cocktail: 2 };
+
+function paintBubbleShape(context: CanvasRenderingContext2D, width: number, height: number): number {
   const body = height - 34;
   context.beginPath();
   context.roundRect(10, 8, width - 20, body - 8, 46);
@@ -19,7 +24,20 @@ function paintBubble(context: CanvasRenderingContext2D, width: number, height: n
   context.lineWidth = 7;
   context.strokeStyle = "#1c1a26";
   context.stroke();
-  const middle = (body + 8) / 2;
+  return (body + 8) / 2;
+}
+
+function paintSpeech(context: CanvasRenderingContext2D, width: number, height: number, text: string): void {
+  const middle = paintBubbleShape(context, width, height);
+  context.font = speechFont;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = "#1c1a26";
+  context.fillText(text, width / 2, middle + 3);
+}
+
+function paintBubble(context: CanvasRenderingContext2D, width: number, height: number, kind: BubbleKind): void {
+  const middle = paintBubbleShape(context, width, height);
   context.textAlign = "center";
   context.textBaseline = "middle";
   if (kind === "laugh" || kind === "idea") {
@@ -38,18 +56,38 @@ function paintBubble(context: CanvasRenderingContext2D, width: number, height: n
 }
 
 export class OfficeProps {
-  private readonly bubbleMaterials = new Map<BubbleKind, THREE.SpriteMaterial>();
+  private readonly bubbleMaterials = new Map<string, THREE.SpriteMaterial>();
   private readonly cupGeometry = new THREE.CylinderGeometry(0.095, 0.075, 0.21, 14);
   private readonly drinkGeometry = new THREE.CircleGeometry(0.082, 14).rotateX(-Math.PI / 2).translate(0, 0.107, 0);
   private readonly cupMaterials = ["#f4f1ea", "#d6283c", "#1f4fbf", "#ffb84a"].map((color) => venueMaterial({ color, roughness: 0.4 }));
-  private readonly drinkMaterials = [venueMaterial({ color: "#9fd8ff", roughness: 0.1 }), venueMaterial({ color: "#5a3420", roughness: 0.2 })];
+  private readonly drinkMaterials = [
+    venueMaterial({ color: "#9fd8ff", roughness: 0.1 }),
+    venueMaterial({ color: "#5a3420", roughness: 0.2 }),
+    venueMaterial({ color: "#ff4fa3", roughness: 0.1, emissive: "#7a1048" }),
+  ];
 
   bubbleMaterial(kind: BubbleKind): THREE.SpriteMaterial {
-    let material = this.bubbleMaterials.get(kind);
+    return this.cachedBubble(kind, 256, (context, width, height) => paintBubble(context, width, height, kind));
+  }
+
+  speechMaterial(text: string): THREE.SpriteMaterial {
+    const measure = document.createElement("canvas").getContext("2d")!;
+    measure.font = speechFont;
+    const width = THREE.MathUtils.clamp(Math.ceil(measure.measureText(text).width) + 120, 256, 900);
+    return this.cachedBubble(`say:${text}`, width, (context, canvasWidth, height) => paintSpeech(context, canvasWidth, height, text));
+  }
+
+  bubbleAspect(material: THREE.SpriteMaterial): number {
+    const image = material.map?.image as { width: number; height: number } | undefined;
+    return image ? image.width / image.height : 1;
+  }
+
+  private cachedBubble(key: string, width: number, paint: (context: CanvasRenderingContext2D, width: number, height: number) => void): THREE.SpriteMaterial {
+    let material = this.bubbleMaterials.get(key);
     if (!material) {
-      const texture = createCanvasTexture(256, 176, (context, width, height) => paintBubble(context, width, height, kind));
+      const texture = createCanvasTexture(width, bubbleHeight, paint);
       material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, color: new THREE.Color(0.8, 0.8, 0.8) });
-      this.bubbleMaterials.set(kind, material);
+      this.bubbleMaterials.set(key, material);
     }
     return material;
   }
@@ -69,8 +107,8 @@ export class OfficeProps {
     return cup;
   }
 
-  fill(cup: THREE.Group, coffee: boolean): void {
-    (cup.children[1] as THREE.Mesh).material = this.drinkMaterials[coffee ? 1 : 0]!;
+  fill(cup: THREE.Group, drink: DrinkKind): void {
+    (cup.children[1] as THREE.Mesh).material = this.drinkMaterials[drinkIndex[drink]]!;
   }
 
   dispose(): void {

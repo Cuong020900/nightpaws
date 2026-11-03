@@ -93,6 +93,9 @@ async function boot(): Promise<void> {
     onCycleDance: (step) => game.cycleEmote(step),
     onFreezeCrowd: () => game.toggleCrowdFreeze(),
     onSyncCrowd: () => game.toggleCrowdSync(),
+    onSit: () => game.toggleSit(),
+    onHold: () => game.toggleHold(),
+    onTalk: () => game.talk(),
     onToggleMute: () => music.toggleMute(),
     onChangeLook: () => {
       game.returnToIntro();
@@ -290,6 +293,7 @@ async function boot(): Promise<void> {
   window.setInterval(() => {
     hud.setActiveDance(game.activeDance);
     hud.setCrowdMode(game.crowdMode, game.crowdMove);
+    hud.setPlayerActions(game.playerActions);
   }, 150);
 
   uiRoot.append(intro.root, queue.root, hud.root, dialog.root, toasts);

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { CharacterActor } from "../../actors/character-actor.ts";
 import { freeCrowd, type CrowdCue } from "../../actors/crowd-cue.ts";
 import { sipPeriod } from "../../characters/office-poses.ts";
-import type { SceneFrame } from "../scene-module.ts";
+import type { DrinkSpot, SceneFrame, SeatSpot } from "../scene-module.ts";
 import type { DeskSeat } from "./office-architecture.ts";
 import { OfficeProps, talkingFrames, type BubbleKind } from "./office-props.ts";
 import { buildOfficeMap, type ChatCluster, type OfficeMap, type Spot } from "./office-routes.ts";
@@ -46,7 +46,7 @@ interface Worker {
   emoteLeft: number;
 }
 
-const seatTop = 0.55;
+export const seatTop = 0.55;
 
 const nextWeights: Record<OfficeRoutine, Record<OfficeRoutine, number>> = {
   desk: { desk: 0, cooler: 0.45, chat: 0.3, dance: 0.25 },
@@ -60,6 +60,8 @@ const pick = <T>(items: readonly T[]): T => items[Math.floor(Math.random() * ite
 
 export class OfficeLife {
   readonly actors: CharacterActor[];
+  readonly seatSpots: SeatSpot[];
+  readonly drinkSpots: DrinkSpot[];
   private readonly map: OfficeMap;
   private readonly props = new OfficeProps();
   private readonly workers: Worker[];
@@ -69,6 +71,7 @@ export class OfficeLife {
   private readonly toTarget = new THREE.Vector3();
   private cue: CrowdCue = freeCrowd;
   private elapsed = 0;
+  private reserved: Spot | null = null;
 
   constructor(parent: THREE.Object3D, deskSeats: DeskSeat[], roster: readonly OfficeWorker[]) {
     this.map = buildOfficeMap(deskSeats);
@@ -76,10 +79,28 @@ export class OfficeLife {
     this.workers = roster.map((member, index) => this.hire(parent, member, index));
     roster.forEach((member, index) => this.start(this.workers[index]!, index, member));
     this.actors = this.workers.map((worker) => worker.actor);
+    this.seatSpots = this.map.seats.map((spot) => {
+      const { x, z } = this.map.routes.point(spot.node);
+      return { x, z, facing: spot.facing, height: seatTop, desk: true };
+    });
+    this.drinkSpots = this.map.drinkSpots.map((spot) => {
+      const { x, z } = this.map.routes.point(spot.node);
+      return { x, z, facing: spot.facing, drink: spot.coffee ? "coffee" : "water" };
+    });
   }
 
   isSeatBusy(seatIndex: number): boolean {
+    if (this.reserved === this.map.seats[seatIndex]) return true;
     return this.workers.some((worker) => worker.seatIndex === seatIndex && worker.routine === "desk" && worker.arrived);
+  }
+
+  isSeatFree(seatIndex: number): boolean {
+    const spot = this.map.seats[seatIndex];
+    return spot !== undefined && spot !== this.reserved && !this.claimed.has(spot);
+  }
+
+  reserveSeat(seatIndex: number | null): void {
+    this.reserved = seatIndex === null ? null : (this.map.seats[seatIndex] ?? null);
   }
 
   setCue(cue: CrowdCue): void {
@@ -160,7 +181,7 @@ export class OfficeLife {
   private destination(worker: Worker, routine: OfficeRoutine, huddle?: Huddle): Spot | null {
     let spot: Spot | null = null;
     let joined: Huddle | null = null;
-    if (routine === "desk") spot = worker.seat;
+    if (routine === "desk") spot = worker.seat === this.reserved ? null : worker.seat;
     if (routine === "cooler") spot = this.map.drinkSpots.find((drink) => !this.claimed.has(drink)) ?? null;
     if (routine === "dance") {
       const open = this.map.danceSpots.filter((dance) => !this.claimed.has(dance));
@@ -301,7 +322,7 @@ export class OfficeLife {
 
   private grabCup(worker: Worker): void {
     const drink = this.map.drinkSpots.find((spot) => spot === worker.spot);
-    this.props.fill(worker.cup, drink?.coffee ?? false);
+    this.props.fill(worker.cup, drink?.coffee ? "coffee" : "water");
     worker.holding = true;
     worker.actor.holdCup(worker.cup);
   }

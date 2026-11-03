@@ -24,6 +24,12 @@ export interface AnimationInput {
 }
 
 const lerp = THREE.MathUtils.lerp;
+const legFields = ["fLu", "fLf", "fLs", "fRu", "fRf", "fRs"] as const;
+
+function keepStride(pose: Pose, stride: Pose, weight: number): Pose {
+  for (const field of legFields) pose[field] = lerp(pose[field], stride[field], weight);
+  return pose;
+}
 
 export class CharacterAnimator {
   private danceWeight = 0;
@@ -74,7 +80,7 @@ export class CharacterAnimator {
       let pose = heroIdlePose(input.elapsedSeconds, beats, this.offset);
       if (this.walkWeight > 0.002) pose = blendPose(pose, walkPose(input.stridePhase), this.walkWeight);
       if (this.danceWeight > 0.002 && this.lastDance) pose = blendPose(pose, this.styled(dancePose(this.lastDance, beats), input), this.danceWeight);
-      if (acting) pose = addPose(blendPose(pose, this.activityPose(input), this.activityWeight), this.seatPose());
+      if (acting) pose = keepStride(addPose(blendPose(pose, this.activityPose(input), this.activityWeight), this.seatPose()), pose, this.walkWeight);
       if (jumping) pose = addPose(pose, jumpPose(input.airborne, input.landing));
       applyPose(model, pose, input.lite);
       this.blink(input.elapsedSeconds);
@@ -102,8 +108,8 @@ export class CharacterAnimator {
     }
     this.activityBlend = Math.min(1, this.activityBlend + dt * 2.5);
     this.activityWeight = lerp(this.activityWeight, input.activity ? 1 : 0, 1 - Math.exp(-dt * 4));
-    if (input.seatHeight > 0) this.seatHeight = input.seatHeight / this.model.size;
-    this.seatWeight = lerp(this.seatWeight, input.seatHeight > 0 ? 1 : 0, 1 - Math.exp(-dt * 6));
+    if (input.seatHeight !== 0) this.seatHeight = input.seatHeight / this.model.size;
+    this.seatWeight = lerp(this.seatWeight, input.seatHeight !== 0 ? 1 : 0, 1 - Math.exp(-dt * 6));
     return (this.activityWeight >= 0.002 && this.lastActivity !== null) || this.seatWeight >= 0.002;
   }
 

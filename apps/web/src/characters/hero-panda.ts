@@ -245,6 +245,7 @@ function buildTemplate(height: number, outfit: OutfitDescriptor): THREE.Group {
     mesh(lowerArm, capsule(A.r * 0.92, A.f), K, [0, -A.f / 2, 0]);
     for (const y of [-A.f * 0.6, -A.f * 0.8]) mesh(lowerArm, new THREE.TorusGeometry(A.r, 0.035, 8, 24), WRAP, [0, y, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
     mesh(lowerArm, sphere, K, [0, -A.f - A.r * 0.55, 0.01], [A.r * 1.3, A.r * 1.4, A.r * 1.15]);
+    group(`Hand.${side}`, lowerArm, [0, -A.f - A.r * 0.55, A.r * 0.9]);
     mesh(lowerArm, sphere, K, [-sx * A.r * 0.75, -A.f - A.r * 0.2, A.r * 0.55], [A.r * 0.45, A.r * 0.62, A.r * 0.45], [0, 0, sx * 0.6]);
     const hipX = sx * T.hip * 0.48;
     const upperLeg = group(`UpperLeg.${side}`, Hips, [hipX, 0, 0]);

@@ -2,6 +2,7 @@ import type { FloorRect } from "@nightpaws/shared";
 import * as THREE from "three";
 import { clothMaterial, metalMaterial, venueMaterial } from "../../engine/shading.ts";
 import { place, rnd, textSign, TAU, type NeonPalette, type Triple } from "../common/club-kit.ts";
+import type { SeatSpot } from "../scene-module.ts";
 import { ceilingHeight as H, instancedShapes, ShapeBatch, type ShapePlacement } from "./office-kit.ts";
 import {
   bannerTexture,
@@ -14,6 +15,9 @@ import {
   whiteboardTexture,
   woodFloorTexture,
 } from "./office-textures.ts";
+
+const chairInset = 0.18;
+const chairSeatTop = 0.55;
 
 const rect = (minX: number, maxX: number, minZ: number, maxZ: number): FloorRect => ({ minX, maxX, minZ, maxZ });
 
@@ -64,6 +68,7 @@ export interface OfficeParts {
   screen: THREE.Mesh<THREE.PlaneGeometry>;
   monitors: THREE.InstancedMesh;
   seats: DeskSeat[];
+  loungeSeats: SeatSpot[];
   panels: THREE.InstancedMesh;
   partyPanels: boolean[];
   panelCenters: THREE.Vector2[];
@@ -246,22 +251,28 @@ function buildDeskPods(parent: THREE.Object3D, batch: ShapeBatch, m: Materials):
   return { monitors, seats };
 }
 
-function buildMeetingNook(parent: THREE.Object3D, batch: ShapeBatch, m: Materials): void {
+function buildMeetingNook(parent: THREE.Object3D, batch: ShapeBatch, m: Materials): SeatSpot[] {
   const [cx, cz] = [10.6, 6.5];
+  const chairs: SeatSpot[] = [];
+  const chair = (x: number, z: number, turn: number) => {
+    addChair(batch, m, x, z, turn, "#2b3140");
+    chairs.push({ x: x + Math.sin(turn) * chairInset, z: z + Math.cos(turn) * chairInset, facing: turn, height: chairSeatTop, desk: false });
+  };
   place(parent, new THREE.PlaneGeometry(6.4, 4.2), venueMaterial({ color: "#2c3850", roughness: 1 }), [cx, 0.006, cz], [-Math.PI / 2, 0, 0]);
   batch.box(m.walnut, [cx, 0.75, cz], [4.2, 0.06, 1.6]);
   for (const dx of [-1.4, 1.4]) batch.box(m.dark, [cx + dx, 0.36, cz], [0.3, 0.72, 0.9]);
   for (const dx of [-1.3, 0, 1.3]) {
-    addChair(batch, m, cx + dx, cz - 1.08, 0, "#2b3140");
-    addChair(batch, m, cx + dx, cz + 1.08, Math.PI, "#2b3140");
+    chair(cx + dx, cz - 1.08, 0);
+    chair(cx + dx, cz + 1.08, Math.PI);
   }
-  addChair(batch, m, cx - 2.45, cz, Math.PI / 2, "#2b3140");
-  addChair(batch, m, cx + 2.45, cz, -Math.PI / 2, "#2b3140");
+  chair(cx - 2.45, cz, Math.PI / 2);
+  chair(cx + 2.45, cz, -Math.PI / 2);
   batch.box(m.tinted, [cx + 0.9, 0.79, cz - 0.3], [0.32, 0.02, 0.24], 0.4, "#f2efe8");
   batch.box(m.tinted, [cx - 0.6, 0.79, cz + 0.35], [0.3, 0.02, 0.22], -0.3, "#f2efe8");
   place(parent, new THREE.CylinderGeometry(0.006, 0.006, 1.0, 4), m.dark, [cx, H - 0.5, cz]);
   place(parent, new THREE.CylinderGeometry(0.12, 0.42, 0.3, 24, 1, true), metalMaterial("#1d2230", { side: THREE.DoubleSide, roughness: 0.4 }), [cx, H - 1.12, cz]);
   place(parent, new THREE.CircleGeometry(0.4, 24), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 1.8, 1.1) }), [cx, H - 1.26, cz], [Math.PI / 2, 0, 0]);
+  return chairs;
 }
 
 function buildPantry(parent: THREE.Object3D, batch: ShapeBatch, m: Materials): void {
@@ -299,7 +310,7 @@ function buildPantry(parent: THREE.Object3D, batch: ShapeBatch, m: Materials): v
   place(parent, new THREE.PlaneGeometry(0.62, 1.24), new THREE.MeshBasicMaterial({ map: vendingTexture(), color: new THREE.Color(1.5, 1.5, 1.5) }), [-11.75, 1.12, 11.17], [0, Math.PI, 0]);
 }
 
-function buildFrontOfHouse(parent: THREE.Object3D, batch: ShapeBatch, m: Materials, neon: NeonPalette): void {
+function buildFrontOfHouse(parent: THREE.Object3D, batch: ShapeBatch, m: Materials, neon: NeonPalette): SeatSpot[] {
   for (const x of [-2.0, 2.0]) {
     batch.box(m.steel, [x, 1.28, 11.96], [1.5, 2.56, 0.06]);
     batch.box(m.dark, [x, 1.28, 11.92], [0.02, 2.56, 0.02]);
@@ -335,6 +346,7 @@ function buildFrontOfHouse(parent: THREE.Object3D, batch: ShapeBatch, m: Materia
   batch.cylinder(m.dark, [-8.0, 0.75, 11.3], 0.015, 1.5);
   batch.add("cylinder", m.dark, { at: [-8.0, 0.02, 11.3], size: [0.18, 0.03, 0.18] });
   place(parent, new THREE.CylinderGeometry(0.16, 0.24, 0.32, 20, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.6, 0.9), side: THREE.DoubleSide }), [-8.0, 1.6, 11.3]);
+  return [-0.65, 0.65].map((dx) => ({ x: cx + dx, z: 10.85, facing: Math.PI, height: 0.57, desk: false }));
 }
 
 function buildWallDecor(parent: THREE.Object3D, batch: ShapeBatch, m: Materials): void {
@@ -467,15 +479,16 @@ export function buildOffice(parent: THREE.Object3D, neon: NeonPalette, wallColor
   buildShell(parent, batch, m);
   const stage = buildStageWall(parent, batch, m, neon);
   const desks = buildDeskPods(parent, batch, m);
-  buildMeetingNook(parent, batch, m);
+  const meetingChairs = buildMeetingNook(parent, batch, m);
   buildPantry(parent, batch, m);
-  buildFrontOfHouse(parent, batch, m, neon);
+  const sofa = buildFrontOfHouse(parent, batch, m, neon);
   buildWallDecor(parent, batch, m);
   buildPlants(parent, batch, m);
   batch.build(parent);
   return {
     ...stage,
     ...desks,
+    loungeSeats: [...meetingChairs, ...sofa],
     ...buildCeiling(parent),
     ...buildStringLights(parent),
     ...buildBalloons(parent),

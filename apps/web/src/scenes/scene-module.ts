@@ -18,6 +18,23 @@ export interface SceneFrame {
   view: ViewSample;
 }
 
+export type DrinkKind = "water" | "coffee" | "cocktail";
+
+export interface SeatSpot {
+  x: number;
+  z: number;
+  facing: number;
+  height: number;
+  desk: boolean;
+}
+
+export interface DrinkSpot {
+  x: number;
+  z: number;
+  facing: number;
+  drink: DrinkKind;
+}
+
 export interface SceneModule {
   readonly descriptor: SceneDescriptor;
   readonly root: THREE.Object3D;
@@ -28,6 +45,10 @@ export interface SceneModule {
   readonly showcaseSpot: THREE.Vector3;
   readonly showcaseStage: FloorRect;
   readonly residents?: readonly CharacterActor[];
+  readonly seats: readonly SeatSpot[];
+  readonly drinkSpots: readonly DrinkSpot[];
+  isSeatFree(index: number): boolean;
+  occupySeat(index: number | null): void;
   constrainCamera(focus: THREE.Vector3, camera: THREE.Vector3): void;
   update(frame: SceneFrame): void;
   showMusicState(state: RoomMusicState | null): void;

@@ -572,6 +572,16 @@ input {
   box-shadow: 0 3px 0 #0b5c66, 0 0 18px rgba(38, 240, 255, 0.8);
 }
 
+.player-action.is-ready {
+  border-color: rgba(120, 255, 200, 0.75);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5), 0 0 14px rgba(80, 255, 190, 0.55);
+}
+
+.player-action.is-active {
+  background: linear-gradient(180deg, #b6ffd9, #2fd68c);
+  box-shadow: 0 3px 0 #0d6b42, 0 0 18px rgba(80, 255, 190, 0.8);
+}
+
 .crowd-control__button--sync.is-active {
   background: linear-gradient(180deg, #ffe066, #ffb703);
   box-shadow: 0 3px 0 #8a5a00, 0 0 18px rgba(255, 210, 63, 0.8);

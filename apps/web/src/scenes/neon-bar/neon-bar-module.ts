@@ -3,7 +3,7 @@ import * as THREE from "three";
 import type { CrowdCue } from "../../actors/crowd-cue.ts";
 import { rimColor } from "../../engine/shading.ts";
 import type { WorldLook } from "../../engine/world-renderer.ts";
-import type { SceneFrame, SceneModule, SceneModuleFactory } from "../scene-module.ts";
+import type { DrinkSpot, SceneFrame, SceneModule, SceneModuleFactory, SeatSpot } from "../scene-module.ts";
 import {
   buildBar,
   buildBooth,
@@ -50,6 +50,30 @@ const venueObstacles: FloorRect[] = [
   ...[-11.5, -5.5, 5.5, 11.5].map((x) => rect(x - 0.22, x + 0.22, 10.08, 10.52)),
 ];
 
+const stoolTop = 0.92;
+const benchTop = 0.475;
+const barStools = [-8.6, -7.4, -4.2, -3.0, -0.6];
+const lowBooths = [4.6, 8.4];
+
+function boothSeats(x: number, z: number, turn: number): SeatSpot[] {
+  const local: [number, number, number][] = [
+    [-0.7, -0.92, 0],
+    [0.7, -0.92, 0],
+    [-1.05, 0.3, Math.PI / 2],
+    [1.05, 0.3, -Math.PI / 2],
+  ];
+  const cos = Math.cos(turn);
+  const sin = Math.sin(turn);
+  return local.map(([lx, lz, facing]) => ({ x: x + lx * cos + lz * sin, z: z - lx * sin + lz * cos, facing: facing + turn, height: benchTop, desk: false }));
+}
+
+const barSeats: SeatSpot[] = [
+  ...barStools.map((z): SeatSpot => ({ x: -11.65, z, facing: -Math.PI / 2, height: stoolTop, desk: false })),
+  ...lowBooths.flatMap((z) => boothSeats(-14.2, z, Math.PI / 2)),
+];
+
+const barTaps: DrinkSpot[] = [-8.0, -5.6, -3.6, -1.4].map((z) => ({ x: -11.85, z, facing: -Math.PI / 2, drink: "cocktail" }));
+
 class NeonBarModule implements SceneModule {
   readonly root = new THREE.Group();
   readonly obstacles: FloorRect[];
@@ -64,6 +88,9 @@ class NeonBarModule implements SceneModule {
   readonly showcaseSpot = new THREE.Vector3(0, 0, 4.7);
   readonly showcaseStage: FloorRect = rect(-2.6, 2.6, 3.2, 6.6);
   readonly look: WorldLook;
+  readonly seats = barSeats;
+  readonly drinkSpots = barTaps;
+  private occupiedSeat: number | null = null;
   private readonly neon = new NeonPalette(neonSynthMood);
   private readonly room: RoomParts;
   private readonly stage: StageParts;
@@ -102,6 +129,14 @@ class NeonBarModule implements SceneModule {
     this.vjScreen = new VjScreen(this.stage.screen, this.neon);
     this.cast = new SceneCast(this.root, clubCastMembers);
     this.obstacles = [...venueObstacles, ...this.cast.obstacles];
+  }
+
+  isSeatFree(index: number): boolean {
+    return index !== this.occupiedSeat && index < this.seats.length;
+  }
+
+  occupySeat(index: number | null): void {
+    this.occupiedSeat = index;
   }
 
   update(frame: SceneFrame): void {

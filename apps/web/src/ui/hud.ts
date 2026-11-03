@@ -1,4 +1,5 @@
 import { danceMoveName, type DanceMoveId, type RoomMusicState } from "@nightpaws/shared";
+import type { PlayerActionState } from "../actors/player-actions.ts";
 import { danceHotkeyLabel } from "../engine/dance-hotkeys.ts";
 import type { CrowdMode } from "../engine/game.ts";
 import { element } from "./dom.ts";
@@ -12,6 +13,9 @@ export interface HudOptions {
   onCycleDance: (step: number) => void;
   onFreezeCrowd: () => void;
   onSyncCrowd: () => void;
+  onSit: () => void;
+  onHold: () => void;
+  onTalk: () => void;
   onToggleMute: () => boolean;
   onChangeLook: () => void;
   onLeaveRoom: () => void;
@@ -31,6 +35,9 @@ export class Hud {
   private readonly concealButton: HTMLButtonElement;
   private readonly freezeButton: HTMLButtonElement;
   private readonly syncButton: HTMLButtonElement;
+  private readonly sitButton: HTMLButtonElement;
+  private readonly holdButton: HTMLButtonElement;
+  private readonly talkButton: HTMLButtonElement;
 
   constructor(private readonly options: HudOptions) {
     this.playerName = element("strong", { className: "player-chip__name" });
@@ -86,7 +93,24 @@ export class Hud {
     this.freezeButton.addEventListener("click", () => options.onFreezeCrowd());
     this.syncButton = element("button", { className: "chip-button crowd-control__button crowd-control__button--sync", text: "⚡ All dance · G", attributes: { type: "button", "aria-pressed": "false" } });
     this.syncButton.addEventListener("click", () => options.onSyncCrowd());
+    const actionButton = (text: string, action: () => void) => {
+      const button = element("button", { className: "chip-button crowd-control__button player-action", text, attributes: { type: "button", "aria-pressed": "false" } });
+      button.addEventListener("click", (event) => {
+        action();
+        (event.currentTarget as HTMLButtonElement).blur();
+      });
+      return button;
+    };
+    this.sitButton = actionButton("🪑 Sit · R", options.onSit);
+    this.holdButton = actionButton("☕ Hold · Y", options.onHold);
+    this.talkButton = actionButton("💬 Talk · T", options.onTalk);
     const dancePanel = element("div", { className: "dance-panel" }, [
+      element("div", { className: "crowd-control player-actions" }, [
+        element("span", { className: "dance-cycle__label", text: "You" }),
+        this.sitButton,
+        this.holdButton,
+        this.talkButton,
+      ]),
       element("div", { className: "crowd-control" }, [
         element("span", { className: "dance-cycle__label", text: "Crowd" }),
         this.freezeButton,
@@ -111,7 +135,7 @@ export class Hud {
         this.monitor,
         element("div", { className: "hud__actions" }, [dancePanel, requestButton]),
       ]),
-      element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · Space to jump · 1-0, Z-N to dance · Q/E to cycle · F freezes the crowd · G makes everyone dance your move · H hides UI" }),
+      element("p", { className: "hud__hint", text: "Drag to look · WASD or joystick to move · Space to jump · R sit · Y hold a drink · T talk · 1-0, Z-N to dance · Q/E to cycle · F freezes the crowd · G makes everyone dance your move · H hides UI" }),
     ]);
   }
 
@@ -152,6 +176,19 @@ export class Hud {
     this.syncButton.classList.toggle("is-active", synced);
     this.syncButton.setAttribute("aria-pressed", String(synced));
     this.syncButton.textContent = synced && move ? `⚡ All: ${danceMoveName(move)} · G` : "⚡ All dance · G";
+  }
+
+  setPlayerActions(state: PlayerActionState): void {
+    this.setAction(this.sitButton, state.seated, state.seatNearby, state.seated ? "🪑 Stand · R" : "🪑 Sit · R");
+    this.setAction(this.holdButton, state.holding, state.drinkNearby, state.holding ? "☕ Drop · Y" : state.drinkNearby ? "☕ Grab drink · Y" : "☕ Hold · Y");
+    this.setAction(this.talkButton, state.talking, false, "💬 Talk · T");
+  }
+
+  private setAction(button: HTMLButtonElement, active: boolean, ready: boolean, text: string): void {
+    button.classList.toggle("is-active", active);
+    button.classList.toggle("is-ready", ready && !active);
+    button.setAttribute("aria-pressed", String(active));
+    if (button.textContent !== text) button.textContent = text;
   }
 
   setRoomStatus(text: string, tone: "live" | "wait" | "off"): void {

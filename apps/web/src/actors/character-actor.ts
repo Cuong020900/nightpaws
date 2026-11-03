@@ -109,6 +109,7 @@ export class CharacterActor {
   private routine: Routine | null = null;
   private activity: OfficePoseKey | null = null;
   private seatLift = 0;
+  private seatShown = 0;
   private hipHeight = 0;
   private cup: THREE.Object3D | null = null;
   private cue: CrowdCue = freeCrowd;
@@ -156,6 +157,14 @@ export class CharacterActor {
     return this.activity;
   }
 
+  get crownHeight(): number {
+    return this.descriptorValue.height + this.seatShown + this.jumpHeight;
+  }
+
+  get isAirborne(): boolean {
+    return this.jumpHeight > 0;
+  }
+
   setAppearance(appearance: CharacterAppearance): void {
     const descriptor = requireCharacterType(appearance.characterTypeId);
     const outfit = requireOutfit(appearance.outfitId);
@@ -200,6 +209,10 @@ export class CharacterActor {
 
   sit(seatTop: number | null): void {
     this.seatLift = seatTop === null ? 0 : Math.max(0.05, seatTop - this.hipHeight * 0.62);
+  }
+
+  sitOnFloor(): void {
+    this.seatLift = -this.hipHeight * 0.6;
   }
 
   sipPhase(elapsedSeconds: number): number {
@@ -261,6 +274,7 @@ export class CharacterActor {
     this.object.rotation.y = this.facing;
     this.pendingSeconds += deltaSeconds;
     this.updateJump(deltaSeconds);
+    this.updateSeatShown(deltaSeconds);
 
     let lite = false;
     if (view && !this.options.alwaysFullDetail) {
@@ -303,7 +317,7 @@ export class CharacterActor {
 
   private placeCup(elapsedSeconds: number): void {
     const cup = this.cup!;
-    const finger = this.model.bones["Middle1.R"];
+    const finger = this.model.bones["Middle1.R"] ?? this.model.bones["Hand.R"];
     const forearm = this.model.bones["LowerArm.R"];
     if (!finger || !forearm) return;
     finger.getWorldPosition(handPoint);
@@ -321,6 +335,12 @@ export class CharacterActor {
     this.object.removeFromParent();
     this.label?.material.map?.dispose();
     this.label?.material.dispose();
+  }
+
+  private updateSeatShown(deltaSeconds: number): void {
+    const target = this.cue.kind === "sync" ? 0 : this.seatLift;
+    this.seatShown = THREE.MathUtils.lerp(this.seatShown, target, 1 - Math.exp(-deltaSeconds * 6));
+    if (this.label) this.label.position.y = this.headHeight + 0.35 + this.seatShown;
   }
 
   private updateJump(deltaSeconds: number): void {

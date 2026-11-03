@@ -7,7 +7,7 @@ import type { WorldLook } from "../../engine/world-renderer.ts";
 import { fract, NeonPalette, random, TAU } from "../common/club-kit.ts";
 import { SceneCast } from "../common/scene-cast.ts";
 import { VjScreen } from "../common/vj-screen.ts";
-import type { SceneFrame, SceneModule, SceneModuleFactory } from "../scene-module.ts";
+import type { DrinkSpot, SceneFrame, SceneModule, SceneModuleFactory, SeatSpot } from "../scene-module.ts";
 import { buildOffice, officeObstacles, type OfficeParts } from "./office-architecture.ts";
 import { officeCastMembers, officeWorkers } from "./office-cast.ts";
 import { ceilingHeight, composePlacement, officePartyMood } from "./office-kit.ts";
@@ -35,6 +35,9 @@ class OfficeModule implements SceneModule {
   readonly showcaseSpot = new THREE.Vector3(0, 0, 4.6);
   readonly showcaseStage: FloorRect = rect(-2.4, 2.4, 3.1, 6.4);
   readonly look: WorldLook;
+  readonly seats: SeatSpot[];
+  readonly drinkSpots: DrinkSpot[];
+  private occupiedSeat: number | null = null;
   private readonly neon = new NeonPalette(officePartyMood);
   private readonly parts: OfficeParts;
   private readonly lighting: OfficeLighting;
@@ -61,6 +64,18 @@ class OfficeModule implements SceneModule {
     this.cast = new SceneCast(this.root, officeCastMembers);
     this.life = new OfficeLife(this.root, this.parts.seats, officeWorkers);
     this.obstacles = [...officeObstacles, ...this.cast.obstacles];
+    this.seats = [...this.life.seatSpots, ...this.parts.loungeSeats];
+    this.drinkSpots = this.life.drinkSpots;
+  }
+
+  isSeatFree(index: number): boolean {
+    if (index === this.occupiedSeat) return false;
+    return index < this.life.seatSpots.length ? this.life.isSeatFree(index) : index < this.seats.length;
+  }
+
+  occupySeat(index: number | null): void {
+    this.occupiedSeat = index;
+    this.life.reserveSeat(index !== null && index < this.life.seatSpots.length ? index : null);
   }
 
   update(frame: SceneFrame): void {
