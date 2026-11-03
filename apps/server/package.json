@@ -9,13 +9,19 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@fastify/rate-limit": "11.2.1",
     "@nightpaws/shared": "workspace:*",
-    "better-sqlite3": "13.0.3",
-    "fastify": "5.12.7"
+    "fastify": "5.12.7",
+    "ioredis": "6.0.0",
+    "pg": "8.23.1",
+    "proxy-addr": "2.0.8",
+    "ws": "8.22.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "9.6.0",
     "@types/node": "26.6.6",
+    "@types/pg": "8.23.1",
+    "@types/proxy-addr": "2.0.3",
+    "@types/ws": "8.18.1",
     "tsx": "4.23.15"
   }
 }

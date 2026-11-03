@@ -10,6 +10,9 @@
     "dev": "concurrently --names server,web --prefix-colors magenta,cyan \"pnpm --filter @nightpaws/server dev\" \"pnpm --filter @nightpaws/web dev\"",
     "dev:web": "pnpm --filter @nightpaws/web dev",
     "dev:server": "pnpm --filter @nightpaws/server dev",
+    "db:up": "docker compose up -d postgres redis",
+    "stack:up": "docker compose up --build -d",
+    "stack:down": "docker compose down",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"
   },

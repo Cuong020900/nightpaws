@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { CharacterAppearance, PlayerProfile, PlayerWithCharacters, SavedCharacter } from "@nightpaws/shared";
-import type { AppDatabase } from "../database.ts";
+import type pg from "pg";
+import { withTransaction, type AppDatabase } from "../database.ts";
 
 interface PlayerRow {
   id: string;
   display_name: string;
   active_character_id: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface CharacterRow {
@@ -15,7 +16,13 @@ interface CharacterRow {
   player_id: string;
   character_type_id: string;
   outfit_id: string;
-  created_at: string;
+  created_at: Date;
+}
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isPlayerId(value: string): boolean {
+  return uuidPattern.test(value);
 }
 
 function toProfile(row: PlayerRow): PlayerProfile {
@@ -23,8 +30,8 @@ function toProfile(row: PlayerRow): PlayerProfile {
     id: row.id,
     displayName: row.display_name,
     activeCharacterId: row.active_character_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
   };
 }
 
@@ -34,23 +41,24 @@ function toCharacter(row: CharacterRow): SavedCharacter {
     playerId: row.player_id,
     characterTypeId: row.character_type_id,
     outfitId: row.outfit_id,
-    createdAt: row.created_at,
+    createdAt: row.created_at.toISOString(),
   };
 }
 
 export class PlayerRepository {
   constructor(private readonly database: AppDatabase) {}
 
-  find(playerId: string): PlayerWithCharacters | null {
-    const playerRow = this.database
-      .prepare<[string], PlayerRow>("SELECT * FROM players WHERE id = ?")
-      .get(playerId);
+  async find(playerId: string): Promise<PlayerWithCharacters | null> {
+    if (!isPlayerId(playerId)) return null;
+    const players = await this.database.query<PlayerRow>("SELECT * FROM players WHERE id = $1", [playerId]);
+    const playerRow = players.rows[0];
     if (!playerRow) return null;
 
-    const characters = this.database
-      .prepare<[string], CharacterRow>("SELECT * FROM characters WHERE player_id = ? ORDER BY created_at")
-      .all(playerId)
-      .map(toCharacter);
+    const characterRows = await this.database.query<CharacterRow>(
+      "SELECT * FROM characters WHERE player_id = $1 ORDER BY created_at, id",
+      [playerId],
+    );
+    const characters = characterRows.rows.map(toCharacter);
 
     return {
       profile: toProfile(playerRow),
@@ -59,47 +67,38 @@ export class PlayerRepository {
     };
   }
 
-  create(displayName: string, appearance: CharacterAppearance): PlayerWithCharacters {
+  async create(displayName: string, appearance: CharacterAppearance): Promise<PlayerWithCharacters> {
     const playerId = randomUUID();
-    const now = new Date().toISOString();
-    this.database.transaction(() => {
-      this.database
-        .prepare("INSERT INTO players (id, display_name, active_character_id, created_at, updated_at) VALUES (?, ?, NULL, ?, ?)")
-        .run(playerId, displayName, now, now);
-      this.activateAppearance(playerId, appearance, now);
-    })();
-    return this.find(playerId)!;
+    await withTransaction(this.database, async (client) => {
+      await client.query("INSERT INTO players (id, display_name) VALUES ($1, $2)", [playerId, displayName]);
+      await this.activateAppearance(client, playerId, appearance);
+    });
+    return (await this.find(playerId))!;
   }
 
-  update(playerId: string, displayName: string, appearance: CharacterAppearance): PlayerWithCharacters | null {
-    if (!this.find(playerId)) return null;
-    const now = new Date().toISOString();
-    this.database.transaction(() => {
-      this.database
-        .prepare("UPDATE players SET display_name = ?, updated_at = ? WHERE id = ?")
-        .run(displayName, now, playerId);
-      this.activateAppearance(playerId, appearance, now);
-    })();
-    return this.find(playerId);
+  async update(playerId: string, displayName: string, appearance: CharacterAppearance): Promise<PlayerWithCharacters | null> {
+    if (!isPlayerId(playerId)) return null;
+    const updated = await withTransaction(this.database, async (client) => {
+      const result = await client.query("UPDATE players SET display_name = $1, updated_at = now() WHERE id = $2", [displayName, playerId]);
+      if (result.rowCount === 0) return false;
+      await this.activateAppearance(client, playerId, appearance);
+      return true;
+    });
+    return updated ? this.find(playerId) : null;
   }
 
-  private activateAppearance(playerId: string, appearance: CharacterAppearance, now: string): void {
-    this.database
-      .prepare(
-        `INSERT INTO characters (id, player_id, character_type_id, outfit_id, created_at)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT (player_id, character_type_id, outfit_id) DO NOTHING`,
-      )
-      .run(randomUUID(), playerId, appearance.characterTypeId, appearance.outfitId, now);
-
-    const character = this.database
-      .prepare<[string, string, string], { id: string }>(
-        "SELECT id FROM characters WHERE player_id = ? AND character_type_id = ? AND outfit_id = ?",
-      )
-      .get(playerId, appearance.characterTypeId, appearance.outfitId)!;
-
-    this.database
-      .prepare("UPDATE players SET active_character_id = ? WHERE id = ?")
-      .run(character.id, playerId);
+  private async activateAppearance(client: pg.PoolClient, playerId: string, appearance: CharacterAppearance): Promise<void> {
+    await client.query(
+      `INSERT INTO characters (id, player_id, character_type_id, outfit_id)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (player_id, character_type_id, outfit_id) DO NOTHING`,
+      [randomUUID(), playerId, appearance.characterTypeId, appearance.outfitId],
+    );
+    await client.query(
+      `UPDATE players SET active_character_id = (
+         SELECT id FROM characters WHERE player_id = $1 AND character_type_id = $2 AND outfit_id = $3
+       ) WHERE id = $1`,
+      [playerId, appearance.characterTypeId, appearance.outfitId],
+    );
   }
 }

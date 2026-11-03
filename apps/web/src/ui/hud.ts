@@ -14,6 +14,7 @@ export interface HudOptions {
   onSyncCrowd: () => void;
   onToggleMute: () => boolean;
   onChangeLook: () => void;
+  onLeaveRoom: () => void;
 }
 
 export class Hud {
@@ -21,6 +22,7 @@ export class Hud {
   readonly playerHost: HTMLElement;
   private readonly playerName: HTMLElement;
   private readonly venueName: HTMLElement;
+  private readonly roomStatus: HTMLElement;
   private readonly trackTitle: HTMLElement;
   private readonly trackMeta: HTMLElement;
   private readonly monitor: HTMLElement;
@@ -35,10 +37,15 @@ export class Hud {
     const changeLook = element("button", { className: "chip-button", text: "Look & venue", attributes: { type: "button" } });
     changeLook.addEventListener("click", () => options.onChangeLook());
     this.venueName = element("span", { className: "player-chip__venue", text: options.sceneName });
+    const leaveRoom = element("button", { className: "chip-button", text: "Leave", attributes: { type: "button", "aria-label": "Leave the club" } });
+    leaveRoom.addEventListener("click", () => options.onLeaveRoom());
+    this.roomStatus = element("span", { className: "player-chip__room player-chip__room--off", text: "Solo", attributes: { role: "status" } });
     const playerChip = element("div", { className: "player-chip" }, [
       this.venueName,
       this.playerName,
+      this.roomStatus,
       changeLook,
+      leaveRoom,
     ]);
 
     this.playerHost = element("div", { className: "monitor__screen" });
@@ -145,6 +152,11 @@ export class Hud {
     this.syncButton.classList.toggle("is-active", synced);
     this.syncButton.setAttribute("aria-pressed", String(synced));
     this.syncButton.textContent = synced && move ? `⚡ All: ${danceMoveName(move)} · G` : "⚡ All dance · G";
+  }
+
+  setRoomStatus(text: string, tone: "live" | "wait" | "off"): void {
+    this.roomStatus.textContent = text;
+    this.roomStatus.className = `player-chip__room player-chip__room--${tone}`;
   }
 
   setPlaybackActive(isPlaying: boolean): void {

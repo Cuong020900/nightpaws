@@ -209,6 +209,10 @@ export class CharacterActor {
     this.stridePhase += (speed * deltaSeconds * Math.PI) / (strideLength * (this.descriptorValue.height / 1.8));
   }
 
+  turnTo(angle: number, deltaSeconds: number): void {
+    this.facing = angleTowards(this.facing, angle, turnSpeed * deltaSeconds);
+  }
+
   faceTowards(target: THREE.Vector3, deltaSeconds: number): void {
     const desired = Math.atan2(target.x - this.position.x, target.z - this.position.z);
     this.facing = angleTowards(this.facing, desired, turnSpeed * 0.5 * deltaSeconds);

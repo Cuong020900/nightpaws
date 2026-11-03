@@ -29,6 +29,7 @@ export class IntroScreen {
   private readonly nameInput: HTMLInputElement;
   private readonly enterButton: HTMLButtonElement;
   private readonly message: HTMLElement;
+  private readonly roomStatus: HTMLElement;
   private readonly characterButtons = new Map<string, HTMLButtonElement>();
   private readonly outfitButtons = new Map<string, HTMLButtonElement>();
 
@@ -117,10 +118,11 @@ export class IntroScreen {
     this.venueTitle = element("h2", { className: "intro-card__venue" });
     this.tagline = element("p", { className: "intro__tagline" });
     this.message = element("p", { className: "intro__message", attributes: { role: "status" } });
-
+    this.roomStatus = element("p", { className: "intro-card__room", attributes: { role: "status" } });
     const form = element("form", { className: "intro-card" }, [
       element("p", { className: "intro-card__eyebrow", text: "Tonight at" }),
       this.venueTitle,
+      this.roomStatus,
       element("p", { className: "field-label", text: "Venue" }),
       venueGrid,
       element("label", { className: "field-label", text: "Display name", attributes: { for: "display-name-input" } }),
@@ -154,6 +156,18 @@ export class IntroScreen {
 
   hide(): void {
     this.root.classList.add("intro--hidden");
+  }
+
+  get isShown(): boolean {
+    return !this.root.classList.contains("intro--hidden");
+  }
+
+  setRoomStatus(text: string): void {
+    this.roomStatus.textContent = text;
+  }
+
+  setMessage(text: string): void {
+    this.message.textContent = text;
   }
 
   private get scene(): SceneDescriptor {

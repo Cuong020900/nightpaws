@@ -1,0 +1,116 @@
+name: nightpaws
+
+x-server-environment: &server-environment
+  NIGHTPAWS_HOST: 0.0.0.0
+  NIGHTPAWS_PORT: "8787"
+  NIGHTPAWS_LOG_LEVEL: ${NIGHTPAWS_LOG_LEVEL:-info}
+  NIGHTPAWS_DATABASE_URL: postgres://${POSTGRES_USER:-nightpaws}:${POSTGRES_PASSWORD:-nightpaws}@postgres:5432/${POSTGRES_DB:-nightpaws}
+  NIGHTPAWS_DATABASE_POOL_SIZE: ${NIGHTPAWS_DATABASE_POOL_SIZE:-10}
+  NIGHTPAWS_REDIS_URL: redis://redis:6379
+  NIGHTPAWS_TRUST_PROXY: ${NIGHTPAWS_TRUST_PROXY:-loopback,uniquelocal}
+  NIGHTPAWS_ALLOWED_ORIGINS: ${NIGHTPAWS_ALLOWED_ORIGINS:-}
+  NIGHTPAWS_ROOM_CAPACITY: ${NIGHTPAWS_ROOM_CAPACITY:-50}
+  NIGHTPAWS_ROOM_MAX_QUEUE: ${NIGHTPAWS_ROOM_MAX_QUEUE:-500}
+  NIGHTPAWS_ROOM_TICK_MS: ${NIGHTPAWS_ROOM_TICK_MS:-100}
+  NIGHTPAWS_ROOM_RESUME_GRACE_MS: ${NIGHTPAWS_ROOM_RESUME_GRACE_MS:-20000}
+  NIGHTPAWS_ROOM_LEASE_MS: ${NIGHTPAWS_ROOM_LEASE_MS:-30000}
+  NIGHTPAWS_WS_MAX_CONNECTIONS: ${NIGHTPAWS_WS_MAX_CONNECTIONS:-2000}
+  NIGHTPAWS_WS_MAX_CONNECTIONS_PER_IP: ${NIGHTPAWS_WS_MAX_CONNECTIONS_PER_IP:-8}
+  NIGHTPAWS_WS_CONNECTS_PER_MINUTE_PER_IP: ${NIGHTPAWS_WS_CONNECTS_PER_MINUTE_PER_IP:-30}
+  NIGHTPAWS_WS_MAX_PAYLOAD_BYTES: ${NIGHTPAWS_WS_MAX_PAYLOAD_BYTES:-1024}
+  NIGHTPAWS_WS_MESSAGES_PER_SECOND: ${NIGHTPAWS_WS_MESSAGES_PER_SECOND:-25}
+  NIGHTPAWS_WS_MESSAGE_BURST: ${NIGHTPAWS_WS_MESSAGE_BURST:-50}
+  NIGHTPAWS_WS_POSES_PER_SECOND: ${NIGHTPAWS_WS_POSES_PER_SECOND:-15}
+  NIGHTPAWS_WS_VIOLATIONS_BEFORE_KICK: ${NIGHTPAWS_WS_VIOLATIONS_BEFORE_KICK:-60}
+  NIGHTPAWS_WS_HANDSHAKE_TIMEOUT_MS: ${NIGHTPAWS_WS_HANDSHAKE_TIMEOUT_MS:-5000}
+  NIGHTPAWS_WS_IDLE_TIMEOUT_MS: ${NIGHTPAWS_WS_IDLE_TIMEOUT_MS:-90000}
+  NIGHTPAWS_WS_HEARTBEAT_MS: ${NIGHTPAWS_WS_HEARTBEAT_MS:-20000}
+  NIGHTPAWS_WS_MAX_BUFFERED_BYTES: ${NIGHTPAWS_WS_MAX_BUFFERED_BYTES:-1048576}
+  NIGHTPAWS_ABUSE_STRIKES_BEFORE_BAN: ${NIGHTPAWS_ABUSE_STRIKES_BEFORE_BAN:-3}
+  NIGHTPAWS_ABUSE_STRIKE_WINDOW_SECONDS: ${NIGHTPAWS_ABUSE_STRIKE_WINDOW_SECONDS:-600}
+  NIGHTPAWS_ABUSE_BAN_SECONDS: ${NIGHTPAWS_ABUSE_BAN_SECONDS:-300}
+  NIGHTPAWS_HTTP_REQUESTS_PER_MINUTE: ${NIGHTPAWS_HTTP_REQUESTS_PER_MINUTE:-300}
+  NIGHTPAWS_HTTP_MUSIC_REQUESTS_PER_MINUTE: ${NIGHTPAWS_HTTP_MUSIC_REQUESTS_PER_MINUTE:-6}
+  NIGHTPAWS_HTTP_PLAYER_SAVES_PER_MINUTE: ${NIGHTPAWS_HTTP_PLAYER_SAVES_PER_MINUTE:-20}
+  NIGHTPAWS_HTTP_BODY_LIMIT_BYTES: ${NIGHTPAWS_HTTP_BODY_LIMIT_BYTES:-16384}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nightpaws}
+      POSTGRES_USER: ${POSTGRES_USER:-nightpaws}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nightpaws}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - noeviction
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment: *server-environment
+    expose:
+      - "8787"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 6
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      NGINX_API_RATE: ${NGINX_API_RATE:-30r/s}
+      NGINX_API_BURST: ${NGINX_API_BURST:-60}
+      NGINX_WS_CONNECTIONS_PER_IP: ${NGINX_WS_CONNECTIONS_PER_IP:-20}
+      NGINX_WS_RATE: ${NGINX_WS_RATE:-2r/s}
+      NGINX_WS_BURST: ${NGINX_WS_BURST:-20}
+    ports:
+      - "${NIGHTPAWS_WEB_BIND:-0.0.0.0}:${NIGHTPAWS_WEB_PORT:-8080}:80"
+
+volumes:
+  postgres-data:

@@ -3,6 +3,7 @@ import { apiClient } from "../api/api-client.ts";
 import { YouTubeJukebox } from "./youtube-player.ts";
 
 const pollIntervalMs = 4000;
+const livePollIntervalMs = 30000;
 
 export interface RoomMusicListener {
   onMusicState(state: RoomMusicState | null): void;
@@ -18,6 +19,7 @@ export class RoomMusic {
   private finishing = false;
   private playbackEnabled = false;
   private roomGeneration = 0;
+  private live = false;
 
   constructor(
     private roomId: string,
@@ -46,7 +48,18 @@ export class RoomMusic {
 
   async connect(): Promise<void> {
     await this.refresh();
-    this.pollTimer = window.setInterval(() => void this.refresh(), pollIntervalMs);
+    this.schedulePolling();
+  }
+
+  setLive(live: boolean): void {
+    if (this.live === live) return;
+    this.live = live;
+    this.schedulePolling();
+    if (!live) void this.refresh();
+  }
+
+  applyLiveState(state: RoomMusicState): void {
+    if (state.roomId === this.roomId) this.applyState(state);
   }
 
   async startPlayback(): Promise<void> {
@@ -81,6 +94,11 @@ export class RoomMusic {
 
   dispose(): void {
     if (this.pollTimer !== null) window.clearInterval(this.pollTimer);
+  }
+
+  private schedulePolling(): void {
+    if (this.pollTimer !== null) window.clearInterval(this.pollTimer);
+    this.pollTimer = window.setInterval(() => void this.refresh(), this.live ? livePollIntervalMs : pollIntervalMs);
   }
 
   private async refresh(): Promise<void> {

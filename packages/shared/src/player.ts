@@ -30,7 +30,7 @@ export interface SavePlayerBody {
 export const displayNameLimits = { min: 2, max: 18 } as const;
 
 export function normalizeDisplayName(raw: string): string | null {
-  const collapsed = raw.replace(/\s+/g, " ").trim();
+  const collapsed = raw.replace(/[\p{Cc}\p{Cf}]/gu, " ").replace(/\s+/g, " ").trim();
   if (collapsed.length < displayNameLimits.min || collapsed.length > displayNameLimits.max) return null;
   return collapsed;
 }

@@ -31,6 +31,8 @@ export class BotCrowd {
   private readonly bots: Bot[] = [];
   private readonly desiredVelocity = new THREE.Vector3();
   private cue: CrowdCue = freeCrowd;
+  private names: string[] = [];
+  private spawned = 0;
 
   constructor(
     private readonly scene: SceneModule,
@@ -42,11 +44,26 @@ export class BotCrowd {
     return this.bots.map((bot) => bot.actor);
   }
 
+  get count(): number {
+    return this.bots.length;
+  }
+
   populate(count: number, namePool: string[]): void {
-    const names = [...namePool].sort(() => Math.random() - 0.5);
-    for (let index = 0; index < count; index += 1) {
+    this.names = [...namePool].sort(() => Math.random() - 0.5);
+    this.add(count);
+  }
+
+  resize(target: number): void {
+    while (this.bots.length > target) this.bots.pop()!.actor.dispose();
+    if (this.bots.length < target) this.add(target - this.bots.length);
+  }
+
+  private add(count: number): void {
+    for (let step = 0; step < count; step += 1) {
+      const index = this.spawned;
+      this.spawned += 1;
       const actor = new CharacterActor({
-        name: names[index % names.length] ?? `Bot ${index + 1}`,
+        name: this.names[index % this.names.length] ?? `Bot ${index + 1}`,
         appearance: { characterTypeId: pick(characterTypes).id, outfitId: pick(outfits).id },
         labelAccent: labelAccents[index % labelAccents.length]!,
         danceIntensity: 0.85,
@@ -54,6 +71,7 @@ export class BotCrowd {
       const area = index % 2 === 0 ? this.scene.danceArea : pick(this.scene.loungeAreas);
       actor.position.copy(this.space.randomFreePoint(area, actor.radius));
       actor.facing = Math.random() * Math.PI * 2;
+      actor.setCue(this.cue);
       this.parent.add(actor.object);
       this.bots.push({ actor, activity: { kind: "idle", remaining: randomBetween(0.2, 2.5) } });
     }

@@ -4,5 +4,6 @@ export * from "./dances.ts";
 export * from "./music.ts";
 export * from "./outfits.ts";
 export * from "./player.ts";
+export * from "./realtime.ts";
 export * from "./registry.ts";
 export * from "./scene.ts";

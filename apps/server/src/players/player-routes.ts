@@ -13,11 +13,13 @@ const savePlayerSchema = {
   body: {
     type: "object",
     required: ["displayName", "appearance"],
+    additionalProperties: false,
     properties: {
       displayName: { type: "string", maxLength: 64 },
       appearance: {
         type: "object",
         required: ["characterTypeId", "outfitId"],
+        additionalProperties: false,
         properties: {
           characterTypeId: { type: "string", maxLength: 64 },
           outfitId: { type: "string", maxLength: 64 },
@@ -37,26 +39,28 @@ function validateSave(body: SavePlayerBody): ValidatedSave {
   return { displayName, appearance: body.appearance };
 }
 
-export function registerPlayerRoutes(app: FastifyInstance, players: PlayerRepository): void {
+export function registerPlayerRoutes(app: FastifyInstance, players: PlayerRepository, savesPerMinute: number): void {
+  const saveLimit = { rateLimit: { max: savesPerMinute, timeWindow: 60000 } };
+
   app.get<{ Params: { playerId: string } }>(apiRoutePatterns.player, async (request, reply) => {
-    const player = players.find(request.params.playerId);
+    const player = await players.find(request.params.playerId);
     if (!player) return reply.code(404).send({ error: "Player not found." });
     return player;
   });
 
-  app.post<{ Body: SavePlayerBody }>(apiRoutePatterns.players, { schema: savePlayerSchema }, async (request, reply) => {
+  app.post<{ Body: SavePlayerBody }>(apiRoutePatterns.players, { schema: savePlayerSchema, config: saveLimit }, async (request, reply) => {
     const validated = validateSave(request.body);
     if ("error" in validated) return reply.code(400).send(validated);
-    return reply.code(201).send(players.create(validated.displayName, validated.appearance));
+    return reply.code(201).send(await players.create(validated.displayName, validated.appearance));
   });
 
   app.put<{ Params: { playerId: string }; Body: SavePlayerBody }>(
     apiRoutePatterns.player,
-    { schema: savePlayerSchema },
+    { schema: savePlayerSchema, config: saveLimit },
     async (request, reply) => {
       const validated = validateSave(request.body);
       if ("error" in validated) return reply.code(400).send(validated);
-      const player = players.update(request.params.playerId, validated.displayName, validated.appearance);
+      const player = await players.update(request.params.playerId, validated.displayName, validated.appearance);
       if (!player) return reply.code(404).send({ error: "Player not found." });
       return player;
     },

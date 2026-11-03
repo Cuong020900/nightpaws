@@ -1,8 +1,9 @@
-import type { CharacterAppearance, DanceMoveId, RoomMusicState } from "@nightpaws/shared";
+import type { CharacterAppearance, DanceMoveId, PlayerPose, RoomMusicState } from "@nightpaws/shared";
 import * as THREE from "three";
 import { BotCrowd } from "../actors/bot-crowd.ts";
 import { CharacterActor } from "../actors/character-actor.ts";
 import { freeCrowd, type CrowdCue } from "../actors/crowd-cue.ts";
+import { RemoteCrowd } from "../actors/remote-crowd.ts";
 import { BeatClock } from "../music/beat-clock.ts";
 import { createSceneModule } from "../scenes/scene-registry.ts";
 import type { SceneModule } from "../scenes/scene-module.ts";
@@ -28,10 +29,13 @@ export interface GameOptions {
 }
 
 const maxFrameSeconds = 0.05;
+const spawnJitter = 1.2;
 
 export class Game {
   readonly input = new MovementInput();
   private sceneModule: SceneModule;
+  readonly remote: RemoteCrowd;
+  onPlayerJump: (() => void) | null = null;
   private readonly world: WorldRenderer;
   private readonly orbit: OrbitCamera;
   private space: WalkableSpace;
@@ -48,6 +52,7 @@ export class Game {
   private elapsedSeconds = 0;
   private crowdCue: CrowdCue = freeCrowd;
   private pickedDance: DanceMoveId | null = null;
+  private liveRoom = false;
 
   constructor(options: GameOptions) {
     this.world = new WorldRenderer(options.canvas);
@@ -75,6 +80,7 @@ export class Game {
     this.world.scene.add(this.player.object);
 
     this.bots = this.populateCrowd();
+    this.remote = new RemoteCrowd(this.world.scene);
 
     this.input.onKeyPress((code) => {
       if (code === "Space") {
@@ -131,6 +137,22 @@ export class Game {
     return this.player.appearance;
   }
 
+  get playerPose(): PlayerPose | null {
+    if (this.mode !== "playing") return null;
+    const { x, z } = this.player.position;
+    return { x, z, f: this.player.facing, d: this.player.currentDance };
+  }
+
+  setLiveRoom(live: boolean): void {
+    this.liveRoom = live;
+    if (!live) this.remote.clear();
+  }
+
+  correctPlayerPosition(x: number, z: number): void {
+    this.player.position.set(x, 0, z);
+    this.space.constrain(this.player.position, this.player.radius);
+  }
+
   start(): void {
     this.timer.connect(document);
     this.world.renderer.setAnimationLoop((timestamp) => this.frame(timestamp));
@@ -174,7 +196,10 @@ export class Game {
 
   private placeAtSpawn(): void {
     const { spawn } = this.scene.descriptor;
-    this.player.position.set(spawn.x, 0, spawn.z);
+    const angle = Math.random() * Math.PI * 2;
+    const reach = Math.sqrt(Math.random()) * spawnJitter;
+    this.player.position.set(spawn.x + Math.cos(angle) * reach, 0, spawn.z + Math.sin(angle) * reach);
+    this.space.constrain(this.player.position, this.player.radius);
     this.player.facing = spawn.facing;
     this.orbit.yaw = spawn.facing + Math.PI;
   }
@@ -205,7 +230,7 @@ export class Game {
 
   jump(): void {
     if (this.mode !== "playing") return;
-    this.player.jump();
+    if (this.player.jump()) this.onPlayerJump?.();
   }
 
   cycleEmote(step: number): void {
@@ -270,7 +295,10 @@ export class Game {
     this.orbit.update(deltaSeconds);
     this.view.capture(this.world.camera);
     this.player.update(deltaSeconds, timing, this.view);
-    this.bots.update(deltaSeconds, timing, this.beatClock, [this.player], this.view, this.player.position);
+    this.remote.update(deltaSeconds, timing, this.view);
+    const { count } = this.scene.descriptor.bots;
+    this.bots.resize(this.liveRoom ? Math.max(0, count - this.remote.count - 1) : count);
+    this.bots.update(deltaSeconds, timing, this.beatClock, [this.player, ...this.remote.actors], this.view, this.player.position);
     this.scene.update({ deltaSeconds, elapsedSeconds: this.elapsedSeconds, music: this.beatClock, view: this.view });
     this.focusLights.update(deltaSeconds, this.player.position, this.player.facing, this.player.headHeight, rimColor.value);
     this.world.applyLook(this.scene.look);

@@ -9,12 +9,14 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": apiTarget,
+      "/api": { target: apiTarget, xfwd: true },
+      "/ws": { target: apiTarget, ws: true, xfwd: true },
     },
   },
   preview: {
     proxy: {
-      "/api": apiTarget,
+      "/api": { target: apiTarget, xfwd: true },
+      "/ws": { target: apiTarget, ws: true, xfwd: true },
     },
   },
 });
