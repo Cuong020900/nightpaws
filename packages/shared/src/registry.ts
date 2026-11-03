@@ -13,6 +13,7 @@ import {
 import { outfits } from "./outfits.ts";
 import type { SceneDescriptor } from "./scene.ts";
 import { neonBarScene } from "./scenes/neon-bar.ts";
+import { officeScene } from "./scenes/office.ts";
 
 export const characterTypes: CharacterTypeDescriptor[] = [
   pandaCharacter,
@@ -28,7 +29,7 @@ export const characterTypes: CharacterTypeDescriptor[] = [
 
 export const selectableCharacterTypes: CharacterTypeDescriptor[] = characterTypes.filter((type) => type.selectable);
 
-export const sceneDescriptors: SceneDescriptor[] = [neonBarScene];
+export const sceneDescriptors: SceneDescriptor[] = [neonBarScene, officeScene];
 
 export const defaultSceneId = neonBarScene.id;
 

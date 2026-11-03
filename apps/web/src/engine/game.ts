@@ -7,6 +7,7 @@ import { BeatClock } from "../music/beat-clock.ts";
 import { createSceneModule } from "../scenes/scene-registry.ts";
 import type { SceneModule } from "../scenes/scene-module.ts";
 import { danceCycleKeys, danceHotkeys } from "./dance-hotkeys.ts";
+import { disposeTree } from "./dispose-tree.ts";
 import { FocusLights } from "./focus-lights.ts";
 import { MovementInput } from "./movement-input.ts";
 import { OrbitCamera } from "./orbit-camera.ts";
@@ -30,11 +31,11 @@ const maxFrameSeconds = 0.05;
 
 export class Game {
   readonly input = new MovementInput();
-  readonly scene: SceneModule;
+  private sceneModule: SceneModule;
   private readonly world: WorldRenderer;
   private readonly orbit: OrbitCamera;
-  private readonly space: WalkableSpace;
-  private readonly bots: BotCrowd;
+  private space: WalkableSpace;
+  private bots: BotCrowd;
   private readonly player: CharacterActor;
   private readonly beatClock = new BeatClock();
   private readonly timer = new THREE.Timer();
@@ -50,8 +51,8 @@ export class Game {
 
   constructor(options: GameOptions) {
     this.world = new WorldRenderer(options.canvas);
-    this.scene = createSceneModule(options.sceneId);
-    this.world.scene.add(this.scene.root);
+    this.sceneModule = createSceneModule(options.sceneId);
+    this.world.scene.add(this.sceneModule.root);
     this.world.scene.add(this.focusLights.object);
     this.focusLights.setActive(true);
 
@@ -73,8 +74,7 @@ export class Game {
     this.player.setLabelVisible(false);
     this.world.scene.add(this.player.object);
 
-    this.bots = new BotCrowd(this.scene, this.space, this.world.scene);
-    this.bots.populate(this.scene.descriptor.bots.count, this.scene.descriptor.bots.namePool);
+    this.bots = this.populateCrowd();
 
     this.input.onKeyPress((code) => {
       if (code === "Space") {
@@ -101,6 +101,10 @@ export class Game {
         this.playEmote(dance);
       }
     });
+  }
+
+  get scene(): SceneModule {
+    return this.sceneModule;
   }
 
   get currentMode(): GameMode {
@@ -140,18 +144,45 @@ export class Game {
     this.player.setName(name);
   }
 
+  loadScene(sceneId: string): void {
+    if (sceneId === this.sceneModule.descriptor.id) return;
+    const next = createSceneModule(sceneId);
+    this.setCrowdCue(freeCrowd);
+    this.bots.dispose();
+    const previous = this.sceneModule.root;
+    this.sceneModule.dispose();
+    disposeTree(previous);
+    this.sceneModule = next;
+    this.world.scene.add(next.root);
+    this.space = new WalkableSpace(next.descriptor.walkableArea, next.obstacles);
+    this.bots = this.populateCrowd();
+    this.player.stopDancing();
+    if (this.mode === "playing") this.placeAtSpawn();
+    else this.player.position.copy(next.showcaseSpot);
+  }
+
   enterWorld(): void {
     this.mode = "playing";
-    const { spawn } = this.scene.descriptor;
-    this.player.position.set(spawn.x, 0, spawn.z);
-    this.player.facing = spawn.facing;
-    this.orbit.yaw = spawn.facing + Math.PI;
+    this.placeAtSpawn();
     this.orbit.pitch = 0.42;
     this.orbit.distance = 7.5;
     this.orbit.enabled = true;
     this.input.capturing = true;
     this.player.setLabelVisible(true);
     this.focusLights.setActive(false);
+  }
+
+  private placeAtSpawn(): void {
+    const { spawn } = this.scene.descriptor;
+    this.player.position.set(spawn.x, 0, spawn.z);
+    this.player.facing = spawn.facing;
+    this.orbit.yaw = spawn.facing + Math.PI;
+  }
+
+  private populateCrowd(): BotCrowd {
+    const crowd = new BotCrowd(this.scene, this.space, this.world.scene);
+    crowd.populate(this.scene.descriptor.bots.count, this.scene.descriptor.bots.namePool);
+    return crowd;
   }
 
   returnToIntro(): void {

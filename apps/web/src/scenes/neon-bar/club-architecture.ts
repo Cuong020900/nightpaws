@@ -14,7 +14,7 @@ import {
   V2,
   V3,
   type NeonPalette,
-} from "./club-kit.ts";
+} from "../common/club-kit.ts";
 
 export const roomHeight = 9;
 

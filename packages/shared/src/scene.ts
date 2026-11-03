@@ -20,6 +20,8 @@ export interface SceneDescriptor {
   id: string;
   displayName: string;
   tagline: string;
+  enterLabel: string;
+  swatches: string[];
   walkableArea: FloorRect;
   spawn: SpawnPoint;
   bots: BotPopulation;

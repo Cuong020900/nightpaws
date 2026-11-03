@@ -201,6 +201,7 @@ export class VjScreen {
   constructor(
     screen: THREE.Mesh<THREE.PlaneGeometry>,
     private readonly neon: NeonPalette,
+    private readonly idleCaption = "DJ FINN · TAP ♪ REQUEST TO QUEUE A TRACK",
   ) {
     RectAreaLightUniformsLib.init();
     const { width, height } = screen.geometry.parameters;
@@ -283,7 +284,7 @@ export class VjScreen {
       g.fillStyle = glowStyle;
       const headline = nowPlaying
         ? `♪ ${nowPlaying.request.title ?? `YouTube · ${nowPlaying.request.videoId}`}`
-        : "DJ FINN · TAP ♪ REQUEST TO QUEUE A TRACK";
+        : this.idleCaption;
       g.fillText(fitText(g, headline.toUpperCase(), width - 60), width / 2, 172);
       if (nowPlaying) {
         g.font = '700 28px "Avenir Next",Nunito,sans-serif';

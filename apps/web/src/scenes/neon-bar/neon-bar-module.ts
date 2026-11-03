@@ -20,10 +20,11 @@ import {
   type StageParts,
   type VipParts,
 } from "./club-architecture.ts";
-import { ClubCast } from "./club-cast.ts";
-import { fract, NeonPalette, neonSynthMood, random, TAU } from "./club-kit.ts";
+import { SceneCast } from "../common/scene-cast.ts";
+import { clubCastMembers } from "./club-cast.ts";
+import { fract, NeonPalette, neonSynthMood, random, TAU } from "../common/club-kit.ts";
 import { ClubLighting } from "./club-lighting.ts";
-import { VjScreen } from "./vj-screen.ts";
+import { VjScreen } from "../common/vj-screen.ts";
 
 const balconyEdgeZ = 9.9;
 const balconyUnderside = 3.95;
@@ -71,7 +72,7 @@ class NeonBarModule implements SceneModule {
   private readonly vip: VipParts;
   private readonly lighting: ClubLighting;
   private readonly vjScreen: VjScreen;
-  private readonly cast: ClubCast;
+  private readonly cast: SceneCast;
   private readonly tileColor = new THREE.Color();
   private readonly cableAnchor = new THREE.Vector3();
   private readonly cameraRay = new THREE.Vector3();
@@ -99,7 +100,7 @@ class NeonBarModule implements SceneModule {
     buildDecor(this.root);
     this.lighting = new ClubLighting(this.root, this.room.steel, this.neon, mood);
     this.vjScreen = new VjScreen(this.stage.screen, this.neon);
-    this.cast = new ClubCast(this.root);
+    this.cast = new SceneCast(this.root, clubCastMembers);
     this.obstacles = [...venueObstacles, ...this.cast.obstacles];
   }
 

@@ -1,9 +1,10 @@
 # nightpaws
 
-A 3D social hangout that runs in the browser. You pick a name and a chunky,
-stylized animal character, walk into a neon club, request music from YouTube,
-and dance under moving lights. The hero panda and the whole club are built from
-procedural Three.js geometry and canvas-generated textures. The supporting cast
+A 3D social hangout that runs in the browser. You pick a name, a chunky,
+stylized animal character, and a venue (a neon club or an after-hours office
+party), walk in, request music from YouTube, and dance under moving lights. The
+hero panda and both venues are built from procedural Three.js geometry and
+canvas-generated textures. The supporting cast
 are CC0 Quaternius models in `apps/web/public/models` (see `CREDITS.md` there).
 It's designed to grow into many scenes and many character types.
 
@@ -34,6 +35,9 @@ The web dev server reads `NIGHTPAWS_API_URL`.
   `Q`/`E`. Moving cancels the dance.
 - Jump with `Space`.
 - Hide or show the HUD with `H` or the Hide UI button.
+- Switch venue from the intro screen. In game, the Look & venue button returns
+  to it. `?venue=office` in the URL opens a venue directly, and the browser
+  remembers the last one.
 - Queue a YouTube link or video id with the ♪ Request button (or `M`).
 
 ## Layout
@@ -73,10 +77,15 @@ pnpm workspaces:
   New dance moves go in `apps/web/src/characters/dance-poses.ts` and
   `packages/shared/src/dances.ts`.
 - **An outfit**: add an entry to `packages/shared/src/outfits.ts`.
-- **A map**: add a `SceneDescriptor` to `sceneDescriptors`. Then create a
-  `SceneModule` under `apps/web/src/scenes/<map>/` and register its factory in
-  `scene-registry.ts`. Scene-specific logic lives in the module, as the club's
-  zones, lighting rig, LED wall, and resident cast do in `scenes/neon-bar/`.
+- **A map**: add a `SceneDescriptor` to `sceneDescriptors` (its display name,
+  tagline, enter label, and swatches feed the intro's venue picker). Then
+  create a `SceneModule` under `apps/web/src/scenes/<map>/` and register its
+  factory in `scene-registry.ts`. Scene-specific logic lives in the module, as
+  the club's zones, lighting rig, and LED wall do in `scenes/neon-bar/` and the
+  office's do in `scenes/office/`. Shared pieces live in `scenes/common/`: the
+  neon kit, the beat-reactive VJ screen, and `SceneCast`, which takes a list of
+  resident cast members. Switching venues disposes the old module and its GPU
+  resources, then builds the new one with a fresh bot crowd and music room.
 
 ### Music
 
@@ -104,12 +113,22 @@ playing.
 
 ## Status
 
-There is one map, The Neon Paw club. Its zones are the entrance, the dance
-floor, the stage and DJ booth, the bar and booths, and VIP. The resident cast
-works the club: DJ Finn on the decks, four go-go dancers on the podiums running
-the full routine (mirrored in pairs), Juno at the VIP rope, and regulars at the
-bar and in VIP. Simulated bots wander, lounge, and dance, more often while
-music plays.
+There are two maps, and each one has its own music room.
+
+- The Neon Paw club. Its zones are the entrance, the dance floor, the stage and
+  DJ booth, the bar and booths, and VIP. The resident cast works the club: DJ
+  Finn on the decks, four go-go dancers on the podiums running the full routine
+  (mirrored in pairs), Juno at the VIP rope, and regulars at the bar and in VIP.
+- Pawsworks HQ, an open-plan office on the 12th floor after hours. It has desk
+  pods with glowing monitors, a meeting nook, a pantry with a snack island and
+  water cooler, reception and elevators, and floor-to-ceiling windows over a
+  night skyline. The party is in the cleared all-hands area: a wooden dance
+  floor under a disco ball, string lights, ceiling panels that chase the beat,
+  clamp-on party spots, and a big TV wall running the VJ visuals. DJ Kip plays
+  from a standing desk, Marlo dances on the meeting table, Hazel dances on a
+  desk, and coworkers groove around the office.
+
+Simulated bots wander, lounge, and dance, more often while music plays.
 
 Players pick from eight characters: the hand-built hero panda, five rabbits, a
 bunny, and a shark. There are seven outfits and eight dance moves.
@@ -119,7 +138,9 @@ Performance choices:
 - The pixel ratio is capped at 1.5, and there are no shadow maps (blob
   shadows only).
 - The club has ten real-time lights. The light beams are additive cones.
-- The dance floor and bottle wall are instanced.
+- The dance floor and bottle wall are instanced. The office batches its
+  furniture into one instanced mesh per material and shape, and has nine
+  real-time lights.
 - Characters share cloned geometry and cached materials.
 - Characters outside the camera view are skipped. Distant ones update at half
   or third rate with a lite pose that has no leg IK.

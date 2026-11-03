@@ -20,6 +20,7 @@ export class Hud {
   readonly root: HTMLElement;
   readonly playerHost: HTMLElement;
   private readonly playerName: HTMLElement;
+  private readonly venueName: HTMLElement;
   private readonly trackTitle: HTMLElement;
   private readonly trackMeta: HTMLElement;
   private readonly monitor: HTMLElement;
@@ -31,10 +32,11 @@ export class Hud {
 
   constructor(private readonly options: HudOptions) {
     this.playerName = element("strong", { className: "player-chip__name" });
-    const changeLook = element("button", { className: "chip-button", text: "Change look", attributes: { type: "button" } });
+    const changeLook = element("button", { className: "chip-button", text: "Look & venue", attributes: { type: "button" } });
     changeLook.addEventListener("click", () => options.onChangeLook());
+    this.venueName = element("span", { className: "player-chip__venue", text: options.sceneName });
     const playerChip = element("div", { className: "player-chip" }, [
-      element("span", { className: "player-chip__venue", text: options.sceneName }),
+      this.venueName,
       this.playerName,
       changeLook,
     ]);
@@ -114,6 +116,10 @@ export class Hud {
 
   hide(): void {
     this.root.classList.add("hud--hidden");
+  }
+
+  setSceneName(name: string): void {
+    this.venueName.textContent = name;
   }
 
   get isShown(): boolean {

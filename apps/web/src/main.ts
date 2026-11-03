@@ -1,8 +1,9 @@
-import { defaultSceneId, findSceneDescriptor, findSelectableCharacterType, outfits, type CharacterAppearance } from "@nightpaws/shared";
+import { defaultSceneId, findSelectableCharacterType, outfits, type CharacterAppearance, type SceneDescriptor } from "@nightpaws/shared";
 import { restorePlayer, savePlayer } from "./api/player-session.ts";
 import { Game } from "./engine/game.ts";
 import { preloadCharacterModels } from "./characters/model-library.ts";
 import { RoomMusic } from "./music/room-music.ts";
+import { playableScenes } from "./scenes/scene-registry.ts";
 import "./styles.css";
 import { showToast } from "./ui/dom.ts";
 import { Hud } from "./ui/hud.ts";
@@ -10,6 +11,24 @@ import { IntroScreen } from "./ui/intro-screen.ts";
 import { MusicRequestDialog } from "./ui/music-request-dialog.ts";
 
 const defaultAppearance: CharacterAppearance = { characterTypeId: "panda", outfitId: outfits[0]!.id };
+const venueStorageKey = "nightpaws.venueId";
+
+function readStoredVenue(scenes: SceneDescriptor[]): SceneDescriptor | undefined {
+  try {
+    const id = localStorage.getItem(venueStorageKey);
+    return scenes.find((scene) => scene.id === id);
+  } catch {
+    return undefined;
+  }
+}
+
+function storeVenue(sceneId: string): void {
+  try {
+    localStorage.setItem(venueStorageKey, sceneId);
+  } catch {
+    return;
+  }
+}
 
 async function waitForFonts(): Promise<void> {
   await Promise.race([document.fonts.ready, new Promise((resolve) => setTimeout(resolve, 1500))]);
@@ -20,7 +39,9 @@ async function boot(): Promise<void> {
   const uiRoot = document.querySelector<HTMLElement>("#ui-root")!;
   const loading = document.querySelector<HTMLElement>("#loading")!;
   const loadingText = loading.querySelector<HTMLElement>(".loading__text")!;
-  const scene = findSceneDescriptor(defaultSceneId)!;
+  const venues = playableScenes();
+  const requestedVenue = new URLSearchParams(window.location.search).get("venue");
+  const scene = venues.find((venue) => venue.id === requestedVenue) ?? readStoredVenue(venues) ?? venues.find((venue) => venue.id === defaultSceneId) ?? venues[0]!;
 
   const [savedPlayer] = await Promise.all([
     restorePlayer(),
@@ -36,6 +57,7 @@ async function boot(): Promise<void> {
     ? { characterTypeId: savedCharacter.characterTypeId, outfitId: savedCharacter.outfitId }
     : defaultAppearance;
 
+  document.title = `Nightpaws · ${scene.displayName}`;
   const game = new Game({ canvas, sceneId: scene.id, playerName: playerName || "You", playerAppearance: initialAppearance });
 
   const toasts = document.createElement("div");
@@ -75,11 +97,19 @@ async function boot(): Promise<void> {
   });
 
   const intro: IntroScreen = new IntroScreen({
-    scene,
+    scenes: venues,
+    initialSceneId: scene.id,
     initialName: playerName,
     initialAppearance,
     onAppearanceChange: (appearance) => game.setPlayerAppearance(appearance),
     onNameChange: (name) => game.setPlayerName(name),
+    onSceneChange: (sceneId) => {
+      game.loadScene(sceneId);
+      music.switchRoom(sceneId);
+      hud.setSceneName(game.scene.descriptor.displayName);
+      document.title = `Nightpaws · ${game.scene.descriptor.displayName}`;
+      storeVenue(sceneId);
+    },
     onEnter: async (name, appearance) => {
       playerName = name;
       game.setPlayerName(name);

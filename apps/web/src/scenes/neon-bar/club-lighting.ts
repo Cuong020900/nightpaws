@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { metalMaterial } from "../../engine/shading.ts";
-import { aimBeam, dotTexture, lightBeam, place, rnd, V3, type BeamMesh, type ClubMood, type NeonPalette } from "./club-kit.ts";
+import { aimBeam, dotTexture, lightBeam, place, rnd, V3, type BeamMesh, type ClubMood, type NeonPalette } from "../common/club-kit.ts";
 
 interface MovingHead {
   light: THREE.SpotLight;

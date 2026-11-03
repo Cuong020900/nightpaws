@@ -9,17 +9,23 @@ import {
 import { element } from "./dom.ts";
 
 export interface IntroScreenOptions {
-  scene: SceneDescriptor;
+  scenes: SceneDescriptor[];
+  initialSceneId: string;
   initialName: string;
   initialAppearance: CharacterAppearance;
   onAppearanceChange: (appearance: CharacterAppearance) => void;
   onNameChange: (name: string) => void;
+  onSceneChange: (sceneId: string) => void;
   onEnter: (name: string, appearance: CharacterAppearance) => Promise<void>;
 }
 
 export class IntroScreen {
   readonly root: HTMLElement;
   private appearance: CharacterAppearance;
+  private sceneId: string;
+  private readonly venueTitle: HTMLElement;
+  private readonly tagline: HTMLElement;
+  private readonly venueButtons = new Map<string, HTMLButtonElement>();
   private readonly nameInput: HTMLInputElement;
   private readonly enterButton: HTMLButtonElement;
   private readonly message: HTMLElement;
@@ -28,6 +34,7 @@ export class IntroScreen {
 
   constructor(private readonly options: IntroScreenOptions) {
     this.appearance = { ...options.initialAppearance };
+    this.sceneId = options.initialSceneId;
 
     this.nameInput = element("input", {
       className: "neon-input",
@@ -87,12 +94,35 @@ export class IntroScreen {
       }),
     );
 
-    this.enterButton = element("button", { className: "chunky-button chunky-button--hero", text: "Enter the club", attributes: { type: "submit" } });
+    const venueGrid = element(
+      "div",
+      { className: "choice-grid venue-grid" },
+      options.scenes.map((scene) => {
+        const button = element("button", { className: "character-card venue-card", attributes: { type: "button", "data-venue": scene.id } }, [
+          element(
+            "span",
+            { className: "character-card__swatches" },
+            scene.swatches.map((color) => element("i", { style: { background: color } })),
+          ),
+          element("strong", { text: scene.displayName }),
+          element("small", { text: scene.tagline }),
+        ]);
+        button.addEventListener("click", () => this.chooseScene(scene.id));
+        this.venueButtons.set(scene.id, button);
+        return button;
+      }),
+    );
+
+    this.enterButton = element("button", { className: "chunky-button chunky-button--hero", attributes: { type: "submit" } });
+    this.venueTitle = element("h2", { className: "intro-card__venue" });
+    this.tagline = element("p", { className: "intro__tagline" });
     this.message = element("p", { className: "intro__message", attributes: { role: "status" } });
 
     const form = element("form", { className: "intro-card" }, [
       element("p", { className: "intro-card__eyebrow", text: "Tonight at" }),
-      element("h2", { className: "intro-card__venue", text: options.scene.displayName }),
+      this.venueTitle,
+      element("p", { className: "field-label", text: "Venue" }),
+      venueGrid,
       element("label", { className: "field-label", text: "Display name", attributes: { for: "display-name-input" } }),
       this.nameInput,
       element("p", { className: "field-label", text: "Character" }),
@@ -110,7 +140,7 @@ export class IntroScreen {
     this.root = element("section", { className: "intro" }, [
       element("header", { className: "intro__brand" }, [
         element("h1", { className: "logo", text: "NIGHTPAWS" }),
-        element("p", { className: "intro__tagline", text: options.scene.tagline }),
+        this.tagline,
       ]),
       form,
     ]);
@@ -126,6 +156,17 @@ export class IntroScreen {
     this.root.classList.add("intro--hidden");
   }
 
+  private get scene(): SceneDescriptor {
+    return this.options.scenes.find((scene) => scene.id === this.sceneId) ?? this.options.scenes[0]!;
+  }
+
+  private chooseScene(sceneId: string): void {
+    if (sceneId === this.sceneId) return;
+    this.sceneId = sceneId;
+    this.refreshSelection();
+    this.options.onSceneChange(sceneId);
+  }
+
   private choose(change: Partial<CharacterAppearance>): void {
     this.appearance = { ...this.appearance, ...change };
     this.refreshSelection();
@@ -133,6 +174,14 @@ export class IntroScreen {
   }
 
   private refreshSelection(): void {
+    const scene = this.scene;
+    this.venueTitle.textContent = scene.displayName;
+    this.tagline.textContent = scene.tagline;
+    this.enterButton.textContent = scene.enterLabel;
+    for (const [id, button] of this.venueButtons) {
+      button.classList.toggle("is-selected", id === scene.id);
+      button.setAttribute("aria-pressed", String(id === scene.id));
+    }
     for (const [id, button] of this.characterButtons) {
       button.classList.toggle("is-selected", id === this.appearance.characterTypeId);
     }

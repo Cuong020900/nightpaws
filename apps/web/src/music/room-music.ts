@@ -17,9 +17,10 @@ export class RoomMusic {
   private pollTimer: number | null = null;
   private finishing = false;
   private playbackEnabled = false;
+  private roomGeneration = 0;
 
   constructor(
-    private readonly roomId: string,
+    private roomId: string,
     playerHost: HTMLElement,
     private readonly listener: RoomMusicListener,
   ) {
@@ -55,9 +56,23 @@ export class RoomMusic {
   }
 
   async request(video: string, requestedBy: string, playerId: string | null): Promise<RoomMusicState> {
+    const generation = this.roomGeneration;
     const state = await apiClient.requestMusic(this.roomId, { video, requestedBy, ...(playerId ? { playerId } : {}) });
-    this.applyState(state);
+    if (generation === this.roomGeneration) this.applyState(state);
     return state;
+  }
+
+  switchRoom(roomId: string): void {
+    if (roomId === this.roomId) return;
+    this.roomId = roomId;
+    this.roomGeneration += 1;
+    this.state = null;
+    this.listener.onMusicState(null);
+    if (this.loadedRequestId !== null) {
+      this.loadedRequestId = null;
+      void this.jukebox.stop();
+    }
+    void this.refresh();
   }
 
   toggleMute(): boolean {
@@ -69,10 +84,12 @@ export class RoomMusic {
   }
 
   private async refresh(): Promise<void> {
+    const generation = this.roomGeneration;
     try {
-      this.applyState(await apiClient.fetchRoomMusic(this.roomId));
+      const state = await apiClient.fetchRoomMusic(this.roomId);
+      if (generation === this.roomGeneration) this.applyState(state);
     } catch {
-      this.listener.onMusicState(this.state);
+      if (generation === this.roomGeneration) this.listener.onMusicState(this.state);
     }
   }
 
@@ -101,8 +118,10 @@ export class RoomMusic {
     const requestId = this.loadedRequestId;
     if (requestId === null || this.finishing) return;
     this.finishing = true;
+    const generation = this.roomGeneration;
     try {
-      this.applyState(await apiClient.finishTrack(this.roomId, { requestId }));
+      const state = await apiClient.finishTrack(this.roomId, { requestId });
+      if (generation === this.roomGeneration) this.applyState(state);
     } catch {
       this.listener.onMusicError("Lost contact with the DJ booth.");
     } finally {

@@ -21,7 +21,10 @@ are also CC0.
 Original work with no third-party license: the hero panda (built procedurally
 in `src/characters/hero-panda.ts`), the eight club dance loops
 (`src/characters/dance-poses.ts`), the club venue, its canvas-drawn textures,
-the LED wall visuals, and the neon signs.
+the LED wall visuals, and the neon signs. The Pawsworks HQ office venue
+(`src/scenes/office/`) is built the same way: procedural Three.js geometry and
+canvas-drawn textures (skyline, carpet, wood floor, whiteboard, banner, clock,
+poster, vending machine). It uses no third-party models or textures.
 
 Three.js and its examples (GLTFLoader, SkeletonUtils, EffectComposer,
 UnrealBloomPass, OutputPass, ShaderPass, RoomEnvironment) are MIT licensed.
