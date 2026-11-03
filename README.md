@@ -10,6 +10,42 @@ It's designed to grow into many scenes and many character types.
 
 ## Run it
 
+### Play it online (GitHub Pages)
+
+The single-player version is live at
+**https://cuong020900.github.io/nightpaws/**.
+
+GitHub Pages hosts only the static web client from `apps/web`. The server,
+Postgres, and Redis are not deployed there. Without a backend the client plays
+solo: the venues, characters, crowd, and dances all work, the intro shows "Club
+server offline · you can still party solo", and multiplayer, saved looks, and
+YouTube music requests stay off.
+
+`.github/workflows/pages.yml` deploys the site on every push to `main` and on
+manual runs (`workflow_dispatch`). The workflow:
+
+1. Installs the web client's dependencies with pnpm.
+2. Runs `pnpm --filter @nightpaws/web build --base=/nightpaws/`. Assets then
+   resolve under the repo subpath, and `pnpm dev` still serves at `/`.
+3. Adds `.nojekyll` to `apps/web/dist`.
+4. Publishes the result with `actions/configure-pages`,
+   `actions/upload-pages-artifact`, and `actions/deploy-pages`.
+
+The Pages source must be set to "GitHub Actions". `configure-pages` runs with
+`enablement: true`, but the default `GITHUB_TOKEN` can't create a Pages site.
+On a repo where Pages has never been turned on, enable it once before the
+first run:
+
+```sh
+gh api -X POST repos/Cuong020900/nightpaws/pages -f build_type=workflow
+```
+
+To check the Pages build locally:
+
+```sh
+pnpm --filter @nightpaws/web build --base=/nightpaws/
+```
+
 ### Whole stack with Docker (one command)
 
 Requirements: Docker with Compose v2.
