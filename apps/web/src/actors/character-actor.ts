@@ -10,6 +10,7 @@ import * as THREE from "three";
 import { CharacterAnimator } from "../characters/character-animator.ts";
 import { buildCharacterModel, type CharacterModel, type ShadingQuality } from "../characters/character-model.ts";
 import type { PoseKey } from "../characters/dance-poses.ts";
+import { sipLift, sipPeriod, type OfficePoseKey } from "../characters/office-poses.ts";
 import { createNameLabel } from "../engine/name-label.ts";
 import type { ViewSample } from "../engine/view-sample.ts";
 import type { WalkableSpace } from "../engine/walkable-space.ts";
@@ -83,6 +84,8 @@ function angleTowards(current: number, target: number, maxStep: number): number 
 }
 
 const boundsCenter = new THREE.Vector3();
+const handPoint = new THREE.Vector3();
+const forearmPoint = new THREE.Vector3();
 const bounds = new THREE.Sphere();
 
 export class CharacterActor {
@@ -104,6 +107,10 @@ export class CharacterActor {
   private stridePhase = 0;
   private danceMove: DanceMoveId | null = null;
   private routine: Routine | null = null;
+  private activity: OfficePoseKey | null = null;
+  private seatLift = 0;
+  private hipHeight = 0;
+  private cup: THREE.Object3D | null = null;
   private cue: CrowdCue = freeCrowd;
   private name: string;
   private appearanceValue!: CharacterAppearance;
@@ -145,6 +152,10 @@ export class CharacterActor {
     return this.descriptorValue.height;
   }
 
+  get currentActivity(): OfficePoseKey | null {
+    return this.activity;
+  }
+
   setAppearance(appearance: CharacterAppearance): void {
     const descriptor = requireCharacterType(appearance.characterTypeId);
     const outfit = requireOutfit(appearance.outfitId);
@@ -158,6 +169,9 @@ export class CharacterActor {
     this.shadowSize = descriptor.height * (this.model.procedural ? 0.9 : 0.75);
     this.shadow = blobShadow(this.shadowSize);
     this.object.add(this.shadow);
+    this.object.updateMatrixWorld(true);
+    const hips = this.model.bones.Hips;
+    this.hipHeight = hips ? this.object.worldToLocal(hips.getWorldPosition(handPoint)).y : 0.3;
     if (this.danceMove && !descriptor.dances.includes(this.danceMove)) this.danceMove = null;
     this.refreshLabel();
   }
@@ -178,6 +192,28 @@ export class CharacterActor {
 
   perform(routine: Routine | null): void {
     this.routine = routine;
+  }
+
+  act(activity: OfficePoseKey | null): void {
+    this.activity = activity;
+  }
+
+  sit(seatTop: number | null): void {
+    this.seatLift = seatTop === null ? 0 : Math.max(0.05, seatTop - this.hipHeight * 0.62);
+  }
+
+  sipPhase(elapsedSeconds: number): number {
+    return THREE.MathUtils.euclideanModulo(elapsedSeconds + this.animator.offset * 7, sipPeriod) / sipPeriod;
+  }
+
+  holdCup(cup: THREE.Object3D | null): void {
+    if (this.cup === cup) return;
+    this.cup?.removeFromParent();
+    this.cup = cup;
+    if (cup) {
+      cup.position.set(0, -10, 0);
+      this.object.add(cup);
+    }
   }
 
   stopDancing(): void {
@@ -257,11 +293,31 @@ export class CharacterActor {
       landing: this.landing,
       onBeat: synced || (this.options.onBeat ?? false),
       snappy: this.cue.kind !== "free",
+      activity: synced ? null : this.activity,
+      seatHeight: synced ? 0 : this.seatLift,
+      holding: this.cup !== null,
     });
     this.pendingSeconds = 0;
+    if (this.cup) this.placeCup(timing.elapsedSeconds);
+  }
+
+  private placeCup(elapsedSeconds: number): void {
+    const cup = this.cup!;
+    const finger = this.model.bones["Middle1.R"];
+    const forearm = this.model.bones["LowerArm.R"];
+    if (!finger || !forearm) return;
+    finger.getWorldPosition(handPoint);
+    forearm.getWorldPosition(forearmPoint);
+    handPoint.lerp(forearmPoint, 0.12);
+    this.object.worldToLocal(handPoint);
+    cup.position.copy(handPoint);
+    cup.position.y += 0.06;
+    const tilt = this.activity === "sipping" && this.cue.kind !== "sync" ? sipLift(elapsedSeconds + this.animator.offset * 7) : 0;
+    cup.rotation.set(-0.25 * tilt, 0, -1.1 * tilt * this.model.sideL);
   }
 
   dispose(): void {
+    this.holdCup(null);
     this.object.removeFromParent();
     this.label?.material.map?.dispose();
     this.label?.material.dispose();

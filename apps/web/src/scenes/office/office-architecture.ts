@@ -54,9 +54,16 @@ export const officeObstacles: FloorRect[] = [
   ...plantSpots.map(([x, z]) => rect(x - 0.32, x + 0.32, z - 0.32, z + 0.32)),
 ];
 
+export interface DeskSeat {
+  x: number;
+  z: number;
+  facing: number;
+}
+
 export interface OfficeParts {
   screen: THREE.Mesh<THREE.PlaneGeometry>;
   monitors: THREE.InstancedMesh;
+  seats: DeskSeat[];
   panels: THREE.InstancedMesh;
   partyPanels: boolean[];
   panelCenters: THREE.Vector2[];
@@ -209,8 +216,9 @@ function buildStageWall(parent: THREE.Object3D, batch: ShapeBatch, m: Materials,
   return { screen, jogWheels, mixerLeds, woofers };
 }
 
-function buildDeskPods(parent: THREE.Object3D, batch: ShapeBatch, m: Materials): THREE.InstancedMesh {
+function buildDeskPods(parent: THREE.Object3D, batch: ShapeBatch, m: Materials): Pick<OfficeParts, "monitors" | "seats"> {
   const screens: ShapePlacement[] = [];
+  const seats: DeskSeat[] = [];
   const seatColors = ["#3b4f7a", "#2f6b62", "#6b3b5a", "#4a4a58"];
   const mugColors = ["#e8e2d6", "#d6283c", "#1f4fbf", "#ffb84a"];
   podCenters.forEach(([cx, cz], pod) => {
@@ -227,12 +235,15 @@ function buildDeskPods(parent: THREE.Object3D, batch: ShapeBatch, m: Materials):
         batch.box(m.dark, [x, 0.765, cz + sz * 0.52], [0.42, 0.015, 0.14]);
         batch.cylinder(m.ceramic, [x + 0.48, 0.805, cz + sz * 0.5], 0.04, 0.09, mugColors[(pod + sx + sz + 4) % mugColors.length]);
         const turn = (sz > 0 ? Math.PI : 0) + (rnd() - 0.5) * 0.7;
-        addChair(batch, m, x + (rnd() - 0.5) * 0.2, cz + sz * 1.1, turn, seatColors[(pod + (sx > 0 ? 1 : 0)) % seatColors.length]!);
+        const chairX = x + (rnd() - 0.5) * 0.2;
+        addChair(batch, m, chairX, cz + sz * 1.1, turn, seatColors[(pod + (sx > 0 ? 1 : 0)) % seatColors.length]!);
+        seats.push({ x: chairX, z: cz + sz * 1.1, facing: sz > 0 ? Math.PI : 0 });
       }
     }
     batch.box(m.deskFrame, [cx, 0.37, cz], [0.04, 0.74, 1.5]);
   });
-  return instancedShapes(parent, "box", new THREE.MeshBasicMaterial({ color: 0xffffff }), screens.map((s) => ({ ...s, size: [s.size[0], s.size[1], 0.002], color: "#ffffff" })));
+  const monitors = instancedShapes(parent, "box", new THREE.MeshBasicMaterial({ color: 0xffffff }), screens.map((s) => ({ ...s, size: [s.size[0], s.size[1], 0.002], color: "#ffffff" })));
+  return { monitors, seats };
 }
 
 function buildMeetingNook(parent: THREE.Object3D, batch: ShapeBatch, m: Materials): void {
@@ -455,7 +466,7 @@ export function buildOffice(parent: THREE.Object3D, neon: NeonPalette, wallColor
   const batch = new ShapeBatch();
   buildShell(parent, batch, m);
   const stage = buildStageWall(parent, batch, m, neon);
-  const monitors = buildDeskPods(parent, batch, m);
+  const desks = buildDeskPods(parent, batch, m);
   buildMeetingNook(parent, batch, m);
   buildPantry(parent, batch, m);
   buildFrontOfHouse(parent, batch, m, neon);
@@ -464,7 +475,7 @@ export function buildOffice(parent: THREE.Object3D, neon: NeonPalette, wallColor
   batch.build(parent);
   return {
     ...stage,
-    monitors,
+    ...desks,
     ...buildCeiling(parent),
     ...buildStringLights(parent),
     ...buildBalloons(parent),

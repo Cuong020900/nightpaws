@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { CharacterModel } from "./character-model.ts";
-import { addPose, applyPose, blendPose, dancePose, heroIdlePose, jumpPose, mirrorPose, scalePose, walkPose, zeroPose, type PoseKey } from "./dance-poses.ts";
+import { addPose, applyPose, blendPose, dancePose, heroIdlePose, jumpPose, mirrorPose, scalePose, walkPose, zeroPose, type Pose, type PoseKey } from "./dance-poses.ts";
+import { officePose, seatedPose, type OfficePoseKey } from "./office-poses.ts";
 
 export interface AnimationInput {
   deltaSeconds: number;
@@ -17,6 +18,9 @@ export interface AnimationInput {
   landing: number;
   onBeat: boolean;
   snappy: boolean;
+  activity: OfficePoseKey | null;
+  seatHeight: number;
+  holding: boolean;
 }
 
 const lerp = THREE.MathUtils.lerp;
@@ -25,7 +29,13 @@ export class CharacterAnimator {
   private danceWeight = 0;
   private walkWeight = 0;
   private lastDance: PoseKey | null = null;
-  private readonly offset = Math.random() * 10;
+  private activityWeight = 0;
+  private activityBlend = 1;
+  private lastActivity: OfficePoseKey | null = null;
+  private previousActivity: OfficePoseKey | null = null;
+  private seatWeight = 0;
+  private seatHeight = 0;
+  readonly offset = Math.random() * 10;
   private readonly beatOffset = Math.random() * 0.12;
   private blinkAt = 1 + Math.random() * 2;
   private blinkStart = -9;
@@ -49,6 +59,7 @@ export class CharacterAnimator {
     this.danceWeight = lerp(this.danceWeight, input.dance && !input.moving ? 1 : 0, 1 - Math.exp(-dt * (input.snappy ? 12 : 3)));
     const beats = input.beats + (input.onBeat ? 0 : this.beatOffset);
     const jumping = input.airborne + input.landing > 0.002;
+    const acting = this.updateActivity(input);
 
     if (model.mixer) {
       if (model.walk) {
@@ -63,6 +74,7 @@ export class CharacterAnimator {
       let pose = heroIdlePose(input.elapsedSeconds, beats, this.offset);
       if (this.walkWeight > 0.002) pose = blendPose(pose, walkPose(input.stridePhase), this.walkWeight);
       if (this.danceWeight > 0.002 && this.lastDance) pose = blendPose(pose, this.styled(dancePose(this.lastDance, beats), input), this.danceWeight);
+      if (acting) pose = addPose(blendPose(pose, this.activityPose(input), this.activityWeight), this.seatPose());
       if (jumping) pose = addPose(pose, jumpPose(input.airborne, input.landing));
       applyPose(model, pose, input.lite);
       this.blink(input.elapsedSeconds);
@@ -70,14 +82,41 @@ export class CharacterAnimator {
     }
 
     const dancing = this.danceWeight >= 0.002 && this.lastDance !== null;
-    if (!dancing && !jumping) {
+    if (!dancing && !jumping && !acting) {
       model.root.position.set(0, 0, 0);
       model.root.rotation.set(0, 0, 0);
       return;
     }
     let pose = dancing ? scalePose(this.styled(dancePose(this.lastDance!, beats), input), this.danceWeight) : zeroPose();
+    if (acting) pose = addPose(addPose(pose, scalePose(this.activityPose(input), this.activityWeight)), this.seatPose());
     if (jumping) pose = addPose(pose, jumpPose(input.airborne, input.landing));
     applyPose(model, pose, input.lite);
+  }
+
+  private updateActivity(input: AnimationInput): boolean {
+    const dt = input.deltaSeconds;
+    if (input.activity && input.activity !== this.lastActivity) {
+      this.previousActivity = this.activityWeight > 0.01 ? this.lastActivity : null;
+      this.lastActivity = input.activity;
+      this.activityBlend = 0;
+    }
+    this.activityBlend = Math.min(1, this.activityBlend + dt * 2.5);
+    this.activityWeight = lerp(this.activityWeight, input.activity ? 1 : 0, 1 - Math.exp(-dt * 4));
+    if (input.seatHeight > 0) this.seatHeight = input.seatHeight / this.model.size;
+    this.seatWeight = lerp(this.seatWeight, input.seatHeight > 0 ? 1 : 0, 1 - Math.exp(-dt * 6));
+    return (this.activityWeight >= 0.002 && this.lastActivity !== null) || this.seatWeight >= 0.002;
+  }
+
+  private activityPose(input: AnimationInput): Pose {
+    if (!this.lastActivity) return zeroPose();
+    const current = officePose(this.lastActivity, input.elapsedSeconds, this.offset, input.holding);
+    if (!this.previousActivity || this.activityBlend >= 1) return current;
+    const previous = officePose(this.previousActivity, input.elapsedSeconds, this.offset, input.holding);
+    return blendPose(previous, current, THREE.MathUtils.smoothstep(this.activityBlend, 0, 1));
+  }
+
+  private seatPose(): Pose {
+    return seatedPose(this.seatHeight, THREE.MathUtils.smoothstep(this.seatWeight, 0, 1));
   }
 
   private styled(pose: ReturnType<typeof dancePose>, input: AnimationInput): ReturnType<typeof dancePose> {

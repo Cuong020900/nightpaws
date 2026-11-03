@@ -298,7 +298,7 @@ export class Game {
     this.remote.update(deltaSeconds, timing, this.view);
     const { count } = this.scene.descriptor.bots;
     this.bots.resize(this.liveRoom ? Math.max(0, count - this.remote.count - 1) : count);
-    this.bots.update(deltaSeconds, timing, this.beatClock, [this.player, ...this.remote.actors], this.view, this.player.position);
+    this.bots.update(deltaSeconds, timing, this.beatClock, [this.player, ...this.remote.actors, ...(this.scene.residents ?? [])], this.view, this.player.position);
     this.scene.update({ deltaSeconds, elapsedSeconds: this.elapsedSeconds, music: this.beatClock, view: this.view });
     this.focusLights.update(deltaSeconds, this.player.position, this.player.facing, this.player.headHeight, rimColor.value);
     this.world.applyLook(this.scene.look);

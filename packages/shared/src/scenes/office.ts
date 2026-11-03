@@ -9,7 +9,7 @@ export const officeScene: SceneDescriptor = {
   walkableArea: { minX: -14.5, maxX: 14.5, minZ: -11.5, maxZ: 11.4 },
   spawn: { x: 0, z: 6.8, facing: Math.PI },
   bots: {
-    count: 11,
+    count: 8,
     namePool: [
       "Kip", "Marlo", "Bea", "Otis", "Wren", "Pip", "Juniper", "Dex",
       "Hazel", "Rory", "Sunny", "Ivo", "Clem", "Nova", "Basil",

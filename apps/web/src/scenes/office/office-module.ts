@@ -1,5 +1,6 @@
 import type { FloorRect, RoomMusicState, SceneDescriptor } from "@nightpaws/shared";
 import * as THREE from "three";
+import type { CharacterActor } from "../../actors/character-actor.ts";
 import type { CrowdCue } from "../../actors/crowd-cue.ts";
 import { rimColor } from "../../engine/shading.ts";
 import type { WorldLook } from "../../engine/world-renderer.ts";
@@ -8,14 +9,16 @@ import { SceneCast } from "../common/scene-cast.ts";
 import { VjScreen } from "../common/vj-screen.ts";
 import type { SceneFrame, SceneModule, SceneModuleFactory } from "../scene-module.ts";
 import { buildOffice, officeObstacles, type OfficeParts } from "./office-architecture.ts";
-import { officeCastMembers } from "./office-cast.ts";
+import { officeCastMembers, officeWorkers } from "./office-cast.ts";
 import { ceilingHeight, composePlacement, officePartyMood } from "./office-kit.ts";
+import { OfficeLife } from "./office-life.ts";
 import { OfficeLighting } from "./office-lighting.ts";
 
 const rect = (minX: number, maxX: number, minZ: number, maxZ: number): FloorRect => ({ minX, maxX, minZ, maxZ });
 
 const afterHoursPanel = new THREE.Color(0.55, 0.5, 0.42);
 const quietScreen = new THREE.Color(0.16, 0.22, 0.4);
+const workScreen = new THREE.Color(0.55, 0.78, 1.05);
 
 class OfficeModule implements SceneModule {
   readonly root = new THREE.Group();
@@ -37,6 +40,7 @@ class OfficeModule implements SceneModule {
   private readonly lighting: OfficeLighting;
   private readonly vjScreen: VjScreen;
   private readonly cast: SceneCast;
+  private readonly life: OfficeLife;
   private readonly scratch = new THREE.Color();
   private readonly matrix = new THREE.Matrix4();
   private readonly cameraRay = new THREE.Vector3();
@@ -55,6 +59,7 @@ class OfficeModule implements SceneModule {
     this.lighting = new OfficeLighting(this.root, this.neon, mood);
     this.vjScreen = new VjScreen(this.parts.screen, this.neon, "DJ KIP · TAP ♪ REQUEST TO QUEUE A TRACK");
     this.cast = new SceneCast(this.root, officeCastMembers);
+    this.life = new OfficeLife(this.root, this.parts.seats, officeWorkers);
     this.obstacles = [...officeObstacles, ...this.cast.obstacles];
   }
 
@@ -80,6 +85,11 @@ class OfficeModule implements SceneModule {
     }
     this.vjScreen.update(time, dt, beats, energy, pulse);
     this.cast.update(frame);
+    this.life.update(frame);
+  }
+
+  get residents(): readonly CharacterActor[] {
+    return this.life.actors;
   }
 
   constrainCamera(focus: THREE.Vector3, camera: THREE.Vector3): void {
@@ -97,6 +107,7 @@ class OfficeModule implements SceneModule {
 
   setCrowdCue(cue: CrowdCue): void {
     this.cast.setCue(cue);
+    this.life.setCue(cue);
   }
 
   showMusicState(state: RoomMusicState | null): void {
@@ -105,6 +116,7 @@ class OfficeModule implements SceneModule {
 
   dispose(): void {
     this.cast.dispose();
+    this.life.dispose();
     this.vjScreen.dispose();
     this.neon.dispose();
     this.root.removeFromParent();
@@ -142,7 +154,8 @@ class OfficeModule implements SceneModule {
     const { monitors } = this.parts;
     for (let i = 0; i < monitors.count; i += 1) {
       const glow = 0.5 + 0.5 * Math.sin(time * 0.6 + i * 1.7);
-      if (energy > 0.05) this.scratch.copy(this.neon.color(i + Math.floor(beats / 2))).multiplyScalar(0.45 + 0.5 * glow);
+      if (this.life.isSeatBusy(i)) this.scratch.copy(workScreen).multiplyScalar(0.85 + 0.15 * Math.sin(time * 7 + i));
+      else if (energy > 0.05) this.scratch.copy(this.neon.color(i + Math.floor(beats / 2))).multiplyScalar(0.45 + 0.5 * glow);
       else this.scratch.copy(quietScreen).lerp(this.neon.color(i), 0.35 * glow);
       monitors.setColorAt(i, this.scratch);
     }

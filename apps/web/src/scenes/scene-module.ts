@@ -1,5 +1,6 @@
 import type { FloorRect, RoomMusicState, SceneDescriptor } from "@nightpaws/shared";
 import type * as THREE from "three";
+import type { CharacterActor } from "../actors/character-actor.ts";
 import type { CrowdCue } from "../actors/crowd-cue.ts";
 import type { ViewSample } from "../engine/view-sample.ts";
 import type { WorldLook } from "../engine/world-renderer.ts";
@@ -26,6 +27,7 @@ export interface SceneModule {
   readonly loungeAreas: FloorRect[];
   readonly showcaseSpot: THREE.Vector3;
   readonly showcaseStage: FloorRect;
+  readonly residents?: readonly CharacterActor[];
   constrainCamera(focus: THREE.Vector3, camera: THREE.Vector3): void;
   update(frame: SceneFrame): void;
   showMusicState(state: RoomMusicState | null): void;

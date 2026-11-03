@@ -184,8 +184,8 @@ export class BotCrowd {
         a.position.z -= offsetZ * push * aShare;
         b.position.x += offsetX * push * bShare;
         b.position.z += offsetZ * push * bShare;
-        this.space.constrain(a.position, a.radius);
-        this.space.constrain(b.position, b.radius);
+        if (aShare) this.space.constrain(a.position, a.radius);
+        if (bShare) this.space.constrain(b.position, b.radius);
       }
     }
   }

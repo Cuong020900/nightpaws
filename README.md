@@ -140,7 +140,8 @@ pnpm workspaces:
   the club's zones, lighting rig, and LED wall do in `scenes/neon-bar/` and the
   office's do in `scenes/office/`. Shared pieces live in `scenes/common/`: the
   neon kit, the beat-reactive VJ screen, and `SceneCast`, which takes a list of
-  resident cast members. Switching venues disposes the old module and its GPU
+  resident cast members. A module can list moving residents (the office's
+  coworkers) so the bot crowd steps aside for them. Switching venues disposes the old module and its GPU
   resources, then builds the new one with a fresh bot crowd and music room.
 
 ### Music
@@ -355,8 +356,12 @@ live, with a waiting line when it is full.
   night skyline. The party is in the cleared all-hands area: a wooden dance
   floor under a disco ball, string lights, ceiling panels that chase the beat,
   clamp-on party spots, and a big TV wall running the VJ visuals. DJ Kip plays
-  from a standing desk, Marlo dances on the meeting table, Hazel dances on a
-  desk, and coworkers groove around the office.
+  from a standing desk, Marlo dances on the meeting table, and Hazel dances on a
+  desk. A dozen coworkers keep office hours between dances: they sit at their
+  desks and type (their monitors light up while they work), walk to the water
+  cooler or coffee machine to fill a cup and sip it, and gather in small groups
+  to chat, with speech bubbles over whoever is talking. Each one moves on from
+  work to a drink to a chat to the dance floor and back on their own schedule.
 
 Simulated bots wander, lounge, and dance, more often while music plays, and
 step aside as real players arrive.
